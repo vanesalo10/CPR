@@ -23,6 +23,11 @@ from mpl_toolkits.basemap import Basemap
 import matplotlib.colors as colors
 import matplotlib.pyplot as plt
 warnings.filterwarnings('ignore')
+import locale
+locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
+# configure locale for data in spanish
+#sudo locale-gen es_ES.UTF-8
+#sudo dpkg-reconfigure locales
 
 class SqlDb:
     '''
@@ -511,7 +516,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         else:
             file = None
         return file
-	
+
     def radar_rain(self,start,end,ext='.hdr'):
         '''
         Reads rain fields (.bin or .hdr)
@@ -766,7 +771,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         level[level>self.risk_levels[-1]*1.2] = np.NaN
         level[level>offset] = np.NaN
         return level
-        
+
     def convert_level_to_risk(self,value,risk_levels):
         ''' Convierte lamina de agua o profundidad a nivel de riesgo
         Parameters
@@ -791,7 +796,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
 
     def risk_level_series(self,start,end):
         return self.level_local(start,end).apply(lambda x: self.convert_level_to_risk(x,self.risk_levels))
-    
+
     def risk_level_df(self,start,end):
         print 'Making risk dataframe'
         df = pd.DataFrame(index=pd.date_range(start,end,freq='D'),columns=self.infost.index)
@@ -805,31 +810,6 @@ class Nivel(SqlDb,wmf.SimuBasin):
                 print "WARNING: station %s empty,row filled with NaN"%codigo
         print 'risk dataframe finished'
         return df
-
-    def plot_level(self,level,rain,riesgos,fontsize=14,ncol=4,ax=None,bbox_to_anchor=(1.0,1.2),**kwargs):
-        if ax is None:
-            fig = plt.figure(figsize=(13.,4))
-            ax = fig.add_subplot(111)
-        nivel = level.resample('H',how='mean')
-        nivel.plot(ax=ax,label='',color='k')
-        axu= ax.twinx()
-        axu.set_ylabel('Lluvia promedio [mm/h]',fontsize=fontsize)
-        mean_rain = (rain*60/5.0).resample('H',how='sum')
-
-        mean_rain.plot(ax=axu,alpha=0.5,fontsize=fontsize,**kwargs)
-        axu.fill_between(mean_rain.index,0,mean_rain.values,alpha=0.2)
-        ylim = axu.get_ylim()[::-1]
-        ylim = (ylim[0],0.0)
-        axu.set_ylim(ylim)
-        ax.set_ylabel('Profundidad (cm)',fontsize=fontsize)
-        alpha=0.2
-        ax.fill_between(nivel.index,ax.get_ylim()[0],riesgos[0],alpha=0.1,color=self.colores_siata[0])
-        ax.fill_between(nivel.index,riesgos[0],riesgos[1],alpha=alpha,color='green')
-        ax.fill_between(nivel.index,riesgos[1],riesgos[2],alpha=alpha,color='orange')
-        ax.fill_between(nivel.index,riesgos[2],riesgos[3],alpha=alpha,color='red')
-        ax.fill_between(nivel.index,riesgos[3],ax.get_ylim()[1],alpha=alpha,color='indigo')
-        ax.set_ylim(0,max(riesgos)*1.05)
-        return (ax,axu)
 
     def plot_basin_rain(self,vec,ax=None):
         if ax is None:
@@ -855,7 +835,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         '''Grafica de la seccion transversal de estaciones de nivel
         |  ----------Parametros
         |  df : dataFrame con el levantamiento topo-batimetrico, columns=['x','y']
-        |  level : Nivel del agua  
+        |  level : Nivel del agua
         |  riskLevels : Niveles de alerta
         |  *args : argumentos plt.plot()
         |  **kwargs : xSensor,offset,riskLevels,xLabel,yLabel,ax,groundColor,fontsize,figsize,
@@ -870,7 +850,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         figsize = kwargs.get('figsize',(10,4))
         riskLevels = kwargs.get('riskLevels',None)
         xSensor = kwargs.get('xSensor',None)
-        offset = kwargs.get('offset',self.info.offset)/100.0
+        offset = kwargs.get('offset',self.info.offset)
         scatterSize = kwargs.get('scatterSize',0.0)
         ax = kwargs.get('ax',None)
         # main plot
@@ -880,19 +860,24 @@ class Nivel(SqlDb,wmf.SimuBasin):
         ax.plot(df['x'].values,df['y'].values,color='k',lw=0.5)
         ax.fill_between(np.array(df['x'].values,float),np.array(df['y'].values,float),float(df['y'].min()),color=groundColor,alpha=0.2)
         # waterLevel
+        sections = []
         if level is not None:
             for data in self.get_sections(df,level):
+                ax.hlines(level,data['x'][0],data['x'][-1],color='k',linewidth=0.5)
                 ax.fill_between(data['x'],level,data['y'],color=waterColor,alpha=0.9)
+                sections.append(data)
         # Sensor
         if (offset is not None) and (xSensor is not None):
-            ax.scatter(xSensor,offset,marker='v',color='k',s=30+scatterSize,zorder=22)
-            ax.scatter(xSensor,offset,color='white',s=120+scatterSize+10,edgecolors='k')
-            ax.vlines(xSensor, level,offset,linestyles='--',alpha=0.5,color=self.colores_siata[-1])
+            label = (sections[0]['x'].max()-df['x'].min())/2.0
+            ax.scatter(label,level*1.7,marker='v',color='k',s=30+scatterSize,zorder=22)
+            ax.scatter(label,level*1.7,color='white',s=120+scatterSize+10,edgecolors='k')
+            ax.annotate('Profundidad',xy=(label*1.1,level*1.7))
+            #ax.vlines(xSensor, level,offset,linestyles='--',alpha=0.5,color=self.colores_siata[-1])
         #labels
-        ax.set_ylabel(yLabel,fontsize=fontsize)
-        ax.set_xlabel(xLabel,fontsize=fontsize)
+        ax.set_xlabel(xLabel)
         ax.set_facecolor('white')
         #risks
+        xlim_max = df['x'].max()
         if riskLevels is not None:
             x = df['x'].max() -df['x'].min()
             y = df['y'].max() -df['y'].min()
@@ -902,14 +887,20 @@ class Nivel(SqlDb,wmf.SimuBasin):
             miny = df['y'].min()
             locx = 1.03*locx
             risks = np.diff(np.array(list(riskLevels)+[offset]))
-            ax.bar(locx,[riskLevels[0]+abs(miny)],width=ancho,bottom=miny,color='#e3e8f1')
-            colors = ['g','orange','red','purple']
+            ax.bar(locx,[riskLevels[0]+abs(miny)],width=ancho,bottom=0,color='green')
+            colors = ['green','yellow','orange','red']
             for i,risk in enumerate(risks):
-                ax.bar(locx,[risk],width=ancho,bottom=riskLevels[i],color=colors[i],zorder=19,alpha=0.5)
+                print [risk]
+                ax.bar(locx,[risk],width=ancho,bottom=riskLevels[i],color=colors[i],zorder=19)
+
+
             if level is not None:
                 ax.hlines(data['y'].max(),data['x'].max(),locx,lw=1,linestyles='--')
                 ax.scatter([locx],[data['y'].max()],s=30,color='k',zorder=20)
-                
+            xlim_max=locx+ancho
+        ax.hlines(data['y'].max(),df['x'].min(),sections[0].min(),lw=1,linestyles='--')
+        ax.set_xlim(df['x'].min(),xlim_max)
+
     def in_risk(self,start,end):
         risk = self.risk_level_df(start,end)
         return risk.sum()[risk.sum()<>0.0].index
@@ -919,3 +910,30 @@ class Nivel(SqlDb,wmf.SimuBasin):
         return self.read_sql("select fecha,id from id_hydro where codigo = '%s'"%self.codigo).set_index('fecha')['id']
 
 
+    def plot_level(self,level,**kwargs):
+        fig = plt.figure(figsize=(13,3))
+        fig.subplots_adjust(wspace=0.001)
+        #gs = GridSpec(3, 3)
+        ax1 = fig.add_subplot(1,2,1)
+        # identical to ax1 = plt.subplot(gs.new_subplotspec((0,0), colspan=3))
+        ax2 = fig.add_subplot(1,2,2,sharey=ax1)
+        ylimit = kwargs.get('ylimit',max(self.risk_levels)*1.05)
+        level.plot(ax=ax1,label='',color='k',linewidth=0.5,**kwargs)
+        ax1.fill_between(level.index,level.values,color=self.colores_siata[0])
+        alpha=0.2
+        bat = self.last_bat(self.info.x_sensor)*100.0
+        bat['x'] = bat['x']/100.
+        ymax = max([bat['y'].max(),self.risk_levels[-1]])
+        ax1.set_ylim(0,ymax)
+        ax1.set_xlim(level.index[0],level.index[-1])
+        sections =self.plot_section(bat,
+                               ax = ax2,
+                               level=level.dropna()[-1],
+                               riskLevels=self.risk_levels,
+                               xSensor=self.info.x_sensor*100)
+        ax1.spines['top'].set_color('w')
+        ax1.spines['right'].set_color('w')
+        ax2.spines['top'].set_color('w')
+        ax2.spines['right'].set_color('w')
+        ax2.spines['right'].set_color('w')
+        ax1.set_ylabel('Profundidad [cm]')
