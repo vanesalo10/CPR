@@ -867,11 +867,11 @@ class Nivel(SqlDb,wmf.SimuBasin):
                 ax.fill_between(data['x'],level,data['y'],color=waterColor,alpha=0.9)
                 sections.append(data)
         # Sensor
-        if (offset is not None) and (xSensor is not None):
-            label = (sections[0]['x'].max()-df['x'].min())/2.0
-            ax.scatter(label,level*1.7,marker='v',color='k',s=30+scatterSize,zorder=22)
-            ax.scatter(label,level*1.7,color='white',s=120+scatterSize+10,edgecolors='k')
-            ax.annotate('Profundidad',xy=(label*1.1,level*1.7))
+        #if (offset is not None) and (xSensor is not None):
+            #label = (sections[0]['x'].max()-df['x'].min())/2.0
+            #ax.scatter(label,level*1.5,marker='v',color='k',s=30+scatterSize,zorder=22)
+            #ax.scatter(label,level*1.5,color='white',s=120+scatterSize+10,edgecolors='k')
+            #ax.annotate('Profundidad',xy=(label*1.1,level*1.7))
             #ax.vlines(xSensor, level,offset,linestyles='--',alpha=0.5,color=self.colores_siata[-1])
         #labels
         ax.set_xlabel(xLabel)
@@ -890,7 +890,6 @@ class Nivel(SqlDb,wmf.SimuBasin):
             ax.bar(locx,[riskLevels[0]+abs(miny)],width=ancho,bottom=0,color='green')
             colors = ['green','yellow','orange','red']
             for i,risk in enumerate(risks):
-                print [risk]
                 ax.bar(locx,[risk],width=ancho,bottom=riskLevels[i],color=colors[i],zorder=19)
 
 
@@ -898,7 +897,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
                 ax.hlines(data['y'].max(),data['x'].max(),locx,lw=1,linestyles='--')
                 ax.scatter([locx],[data['y'].max()],s=30,color='k',zorder=20)
             xlim_max=locx+ancho
-        ax.hlines(data['y'].max(),df['x'].min(),sections[0].min(),lw=1,linestyles='--')
+#        ax.hlines(data['y'].max(),df['x'].min(),sections[0].min(),lw=1,linestyles='--')
         ax.set_xlim(df['x'].min(),xlim_max)
 
     def in_risk(self,start,end):
@@ -910,30 +909,54 @@ class Nivel(SqlDb,wmf.SimuBasin):
         return self.read_sql("select fecha,id from id_hydro where codigo = '%s'"%self.codigo).set_index('fecha')['id']
 
 
-    def plot_level(self,level,**kwargs):
+    def plot_level(self,series,level,**kwargs):
+        series = pd.Series.copy(series/100.0)
+        risk_levels = np.array(self.risk_levels,float)/100.0
         fig = plt.figure(figsize=(13,3))
         fig.subplots_adjust(wspace=0.001)
         #gs = GridSpec(3, 3)
         ax1 = fig.add_subplot(1,2,1)
         # identical to ax1 = plt.subplot(gs.new_subplotspec((0,0), colspan=3))
         ax2 = fig.add_subplot(1,2,2,sharey=ax1)
-        ylimit = kwargs.get('ylimit',max(self.risk_levels)*1.05)
-        level.plot(ax=ax1,label='',color='k',linewidth=0.5,**kwargs)
-        ax1.fill_between(level.index,level.values,color=self.colores_siata[0])
+        ylimit = kwargs.get('ylimit',max(risk_levels)*1.05)
+        series.plot(ax=ax1,label='',color='k',linewidth=0.5,**kwargs)
+        ax1.fill_between(series.index,series.values,color=self.colores_siata[0])
         alpha=0.2
-        bat = self.last_bat(self.info.x_sensor)*100.0
-        bat['x'] = bat['x']/100.
-        ymax = max([bat['y'].max(),self.risk_levels[-1]])
+        bat = self.last_bat(self.info.x_sensor)
+        ymax = max([bat['y'].max(),risk_levels[-1]])
         ax1.set_ylim(0,ymax)
-        ax1.set_xlim(level.index[0],level.index[-1])
+        ax1.set_xlim(series.index[0],series.index[-1])
         sections =self.plot_section(bat,
                                ax = ax2,
-                               level=level.dropna()[-1],
-                               riskLevels=self.risk_levels,
-                               xSensor=self.info.x_sensor*100)
+                               level=level,
+                               riskLevels=risk_levels,
+                               xSensor=self.info.x_sensor)
         ax1.spines['top'].set_color('w')
         ax1.spines['right'].set_color('w')
         ax2.spines['top'].set_color('w')
         ax2.spines['right'].set_color('w')
         ax2.spines['right'].set_color('w')
-        ax1.set_ylabel('Profundidad [cm]')
+        ax1.set_ylabel('Profundidad [m]')
+
+    def gif_level(self,start,end,delay = 30,loop=0,path = "/media/nicolas/maso/Mario/gifs"):
+        level = self.level_local(start,end)
+        os.system('rm -r %s/*.png'%path)
+        for count in range(level.index.size):
+            try:
+                nivel = level.copy()
+                nivel[count:] = np.NaN
+                self.plot_level(nivel,
+                                nivel.dropna()[-1]/100.0,
+                                figsize=(12,3))
+                plt.savefig('%s/%.2d.png'%(path,count),
+                            bbox_inches='tight')
+                plt.close()
+            except:
+                pass
+        file_name = self.file_format(start,end)+'-gif'
+        query = "convert -delay %s -loop %s %s/*.png %s/%s.gif"%(delay,loop,path,path,file_name)
+        r = os.system(query)
+        if r ==0:
+            print('gif saved in path: %s/%s'%(path,file_name))
+        else:
+            print 'didnt work'
