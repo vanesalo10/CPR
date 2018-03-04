@@ -38,8 +38,8 @@ plt.rc('axes',edgecolor=typColor)
 plt.rc('text',color= typColor)
 plt.rc('xtick',color=typColor)
 plt.rc('ytick',color=typColor)
-font = {'size'   : 14}
-plt.rc('font', **font)
+#font = {'size'   : 14}
+#plt.rc('font', **font)
 
 class SqlDb:
     '''
@@ -618,11 +618,12 @@ class Nivel(SqlDb,wmf.SimuBasin):
         return data
 
     def last_bat(self,x_sensor):
-        dfl = self.mysql_query('select * from levantamiento_aforo_nueva')
-        dfl.columns = self.mysql_query('describe levantamiento_aforo_nueva')[0].values
+	obj = Nivel(**info.REMOTE)
+        dfl = obj.mysql_query('select * from levantamiento_aforo_nueva')
+        dfl.columns = obj.mysql_query('describe levantamiento_aforo_nueva')[0].values
         dfl = dfl.set_index('id_aforo')
         for id_aforo in list(set(dfl.index)):
-            id_estacion_asociada,fecha = self.mysql_query("SELECT id_estacion_asociada,fecha from aforo_nueva where id_aforo = %s"%id_aforo,toPandas=False)[0]
+            id_estacion_asociada,fecha = obj.mysql_query("SELECT id_estacion_asociada,fecha from aforo_nueva where id_aforo = %s"%id_aforo,toPandas=False)[0]
             dfl.loc[id_aforo,'id_estacion_asociada'] = int(id_estacion_asociada)
             dfl.loc[id_aforo,'fecha'] = fecha
         dfl = dfl.reset_index().set_index('id_estacion_asociada')
@@ -875,7 +876,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         sections = []
         if level is not None:
             for data in self.get_sections(df,level):
-                ax.hlines(level,data['x'][0],data['x'][-1],color='k',linewidth=0.5)
+                #ax.hlines(level,data['x'][0],data['x'][-1],color='k',linewidth=0.5)
                 ax.fill_between(data['x'],level,data['y'],color=waterColor,alpha=0.9)
                 sections.append(data)
         # Sensor
@@ -921,23 +922,23 @@ class Nivel(SqlDb,wmf.SimuBasin):
         return self.read_sql("select fecha,id from id_hydro where codigo = '%s'"%self.codigo).set_index('fecha')['id']
 
 
-    def plot_level(self,series,level,**kwargs):
+    def plot_level(self,series,level,figsize=(16,4),**kwargs):
         series = pd.Series.copy(series/100.0)
         risk_levels = np.array(self.risk_levels,float)/100.0
-        fig = plt.figure(figsize=(13,3))
+        fig = plt.figure(figsize=figsize)
         fig.subplots_adjust(wspace=0.1)
         #gs = GridSpec(3, 3)
         ax1 = fig.add_subplot(1,2,1)
         # identical to ax1 = plt.subplot(gs.new_subplotspec((0,0), colspan=3))
         ax2 = fig.add_subplot(1,2,2,sharey=ax1)
         ylimit = kwargs.get('ylimit',max(risk_levels)*1.05)
-        series.plot(ax=ax1,label='',color='k',linewidth=0.5,**kwargs)
+        series.plot(ax=ax1,label='',color='w',linewidth=0.5,**kwargs)
         ax1.fill_between(series.index,series.values,color=self.colores_siata[0])
         alpha=0.2
         bat = self.last_bat(self.info.x_sensor)
         ymax = max([bat['y'].max(),risk_levels[-1]])
         ax1.set_ylim(0,ymax)
-        ax1.set_xlim(series.index[0],series.index[-1])
+        ax1.set_xlim(series.index[0],series.index[-1]+datetime.timedelta(minutes=5))
         sections =self.plot_section(bat,
                                ax = ax2,
                                level=level,
