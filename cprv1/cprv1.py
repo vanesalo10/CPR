@@ -22,12 +22,24 @@ from wmf import wmf
 from mpl_toolkits.basemap import Basemap
 import matplotlib.colors as colors
 import matplotlib.pyplot as plt
+import matplotlib.font_manager as fm
 warnings.filterwarnings('ignore')
 import locale
+#PYTHON CONFIGURATION
 locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
 # configure locale for data in spanish
 #sudo locale-gen es_ES.UTF-8
 #sudo dpkg-reconfigure locales
+# Siata settings
+plt.rc('font', family=fm.FontProperties(fname='/media/nicolas/maso/Mario/tools/AvenirLTStd-Book.ttf',).get_name())
+typColor = '#%02x%02x%02x' % (8,31,45)
+plt.rc('axes',labelcolor=typColor)
+plt.rc('axes',edgecolor=typColor)
+plt.rc('text',color= typColor)
+plt.rc('xtick',color=typColor)
+plt.rc('ytick',color=typColor)
+font = {'size'   : 14}
+plt.rc('font', **font)
 
 class SqlDb:
     '''
@@ -845,7 +857,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         xLabel = kwargs.get('xLabel','Distancia desde la margen izquierda [m]')
         yLabel = kwargs.get('yLabel','Profundidad [m]')
         waterColor = kwargs.get('waterColor',self.colores_siata[0])
-        groundColor = kwargs.get('groundColor',self.colores_siata[-2])
+        groundColor = kwargs.get('groundColor','#%02x%02x%02x' % (8,31,45))
         fontsize= kwargs.get('fontsize',14)
         figsize = kwargs.get('figsize',(10,4))
         riskLevels = kwargs.get('riskLevels',None)
@@ -867,11 +879,11 @@ class Nivel(SqlDb,wmf.SimuBasin):
                 ax.fill_between(data['x'],level,data['y'],color=waterColor,alpha=0.9)
                 sections.append(data)
         # Sensor
-        #if (offset is not None) and (xSensor is not None):
-            #label = (sections[0]['x'].max()-df['x'].min())/2.0
-            #ax.scatter(label,level*1.5,marker='v',color='k',s=30+scatterSize,zorder=22)
-            #ax.scatter(label,level*1.5,color='white',s=120+scatterSize+10,edgecolors='k')
-            #ax.annotate('Profundidad',xy=(label*1.1,level*1.7))
+        if (offset is not None) and (xSensor is not None):
+            label = (sections[0]['x'].max()-df['x'].min())/2.0
+            ax.scatter(label,level,marker='v',color='k',s=30+scatterSize,zorder=22)
+            ax.scatter(label,level,color='white',s=120+scatterSize+10,edgecolors='k')
+            #ax.annotate('nivel actual',xy=(label,level*1.2),fontsize=8)
             #ax.vlines(xSensor, level,offset,linestyles='--',alpha=0.5,color=self.colores_siata[-1])
         #labels
         ax.set_xlabel(xLabel)
@@ -913,7 +925,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         series = pd.Series.copy(series/100.0)
         risk_levels = np.array(self.risk_levels,float)/100.0
         fig = plt.figure(figsize=(13,3))
-        fig.subplots_adjust(wspace=0.001)
+        fig.subplots_adjust(wspace=0.1)
         #gs = GridSpec(3, 3)
         ax1 = fig.add_subplot(1,2,1)
         # identical to ax1 = plt.subplot(gs.new_subplotspec((0,0), colspan=3))
@@ -937,6 +949,9 @@ class Nivel(SqlDb,wmf.SimuBasin):
         ax2.spines['right'].set_color('w')
         ax2.spines['right'].set_color('w')
         ax1.set_ylabel('Profundidad [m]')
+        scatterSize = 0
+        ax1.scatter(series.dropna().index[-1],level,marker='v',color='k',s=30+scatterSize,zorder=22)
+        ax1.scatter(series.dropna().index[-1],level,color='white',s=120+scatterSize+10,edgecolors='k')
 
     def gif_level(self,start,end,delay = 30,loop=0,path = "/media/nicolas/maso/Mario/gifs"):
         level = self.level_local(start,end)
@@ -948,7 +963,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
                 self.plot_level(nivel,
                                 nivel.dropna()[-1]/100.0,
                                 figsize=(12,3))
-                plt.savefig('%s/%.2d.png'%(path,count),
+                plt.savefig('%s/%.3d.png'%(path,count),
                             bbox_inches='tight')
                 plt.close()
             except:
