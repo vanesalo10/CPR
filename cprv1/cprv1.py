@@ -923,7 +923,21 @@ class Nivel(SqlDb,wmf.SimuBasin):
         return self.read_sql("select fecha,id from id_hydro where codigo = '%s'"%self.codigo).set_index('fecha')['id']
 
 
-    def plot_level(self,series,level,figsize=(16,4),**kwargs):
+    def plot_level(self,series,lamina='current',figsize=(16,4),scatter=True,scatter_size = 0,**kwargs):
+        ''' Plots water level and channel cross section
+        Parameters
+        ----------
+        series : pandas time series to plot (level in cm)
+        lamina: water level (cm) to show in section, if 'max', shows the maximum water level found in window,
+        if 'current', plots the current or last level found in window, if  lamina is float, plots
+        the water cross section value.
+        Returns
+        ----------
+        Level plot with cross section
+        Watch out!
+        ----------
+        data is converted to meters
+        '''
         series = pd.Series.copy(series/100.0)
         risk_levels = np.array(self.risk_levels,float)/100.0
         fig = plt.figure(figsize=figsize)
@@ -933,7 +947,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         # identical to ax1 = plt.subplot(gs.new_subplotspec((0,0), colspan=3))
         ax2 = fig.add_subplot(1,2,2,sharey=ax1)
         ylimit = kwargs.get('ylimit',max(risk_levels)*1.05)
-        series.plot(ax=ax1,label='',color='w',linewidth=0.5,**kwargs)
+        series.plot(ax=ax1,label='',color='w',linewidth=0,**kwargs)
         #ax1.fill_between(series.index,series.values,color=self.colores_siata[0])
         ax1.fill_between(series.index, series.values,color=self.colores_siata[1],label='Open values')
         #ax1.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M\n%d %b'))
@@ -942,9 +956,20 @@ class Nivel(SqlDb,wmf.SimuBasin):
         ymax = max([bat['y'].max(),risk_levels[-1]])
         ax1.set_ylim(0,ymax)
         ax1.set_xlim(series.index[0],series.index[-1]+datetime.timedelta(minutes=5))
+        # plot section
+        if type(lamina) == str:
+            if lamina == 'current':
+                x,lamina = (series.dropna().index[-1],series.dropna().iloc[-1])
+            else:
+                x,lamina = (series.argmax(),series.max())
+        else:
+            x = series.dropna().index[-1]
+        if scatter:
+            ax1.scatter(x,lamina,marker='v',color='k',s=30+scatter_size,zorder=22)
+            ax1.scatter(x,lamina,color='white',s=120+scatter_size+10,edgecolors='k')
         sections =self.plot_section(bat,
                                ax = ax2,
-                               level=level,
+                               level=lamina,
                                riskLevels=risk_levels,
                                xSensor=self.info.x_sensor)
         ax1.spines['top'].set_color('w')
@@ -953,9 +978,6 @@ class Nivel(SqlDb,wmf.SimuBasin):
         ax2.spines['right'].set_color('w')
         ax2.spines['right'].set_color('w')
         ax1.set_ylabel('Profundidad [m]')
-        scatterSize = 0
-        ax1.scatter(series.dropna().index[-1],level,marker='v',color='k',s=30+scatterSize,zorder=22)
-        ax1.scatter(series.dropna().index[-1],level,color='white',s=120+scatterSize+10,edgecolors='k')
 
     def gif_level(self,start,end,delay = 30,loop=0,path = "/media/nicolas/maso/Mario/gifs"):
         level = self.level_local(start,end)
