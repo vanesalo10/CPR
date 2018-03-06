@@ -25,6 +25,7 @@ import matplotlib.pyplot as plt
 import matplotlib.font_manager as fm
 warnings.filterwarnings('ignore')
 import locale
+import matplotlib.dates as mdates
 #PYTHON CONFIGURATION
 locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
 # configure locale for data in spanish
@@ -857,7 +858,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         level = kwargs.get('level',None)
         xLabel = kwargs.get('xLabel','Distancia desde la margen izquierda [m]')
         yLabel = kwargs.get('yLabel','Profundidad [m]')
-        waterColor = kwargs.get('waterColor',self.colores_siata[0])
+        waterColor = kwargs.get('waterColor',self.colores_siata[1])
         groundColor = kwargs.get('groundColor','#%02x%02x%02x' % (8,31,45))
         fontsize= kwargs.get('fontsize',14)
         figsize = kwargs.get('figsize',(10,4))
@@ -901,7 +902,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
             locx = 1.03*locx
             risks = np.diff(np.array(list(riskLevels)+[offset]))
             ax.bar(locx,[riskLevels[0]+abs(miny)],width=ancho,bottom=0,color='green')
-            colors = ['green','yellow','orange','red']
+            colors = ['yellow','orange','red','red']
             for i,risk in enumerate(risks):
                 ax.bar(locx,[risk],width=ancho,bottom=riskLevels[i],color=colors[i],zorder=19)
 
@@ -933,7 +934,9 @@ class Nivel(SqlDb,wmf.SimuBasin):
         ax2 = fig.add_subplot(1,2,2,sharey=ax1)
         ylimit = kwargs.get('ylimit',max(risk_levels)*1.05)
         series.plot(ax=ax1,label='',color='w',linewidth=0.5,**kwargs)
-        ax1.fill_between(series.index,series.values,color=self.colores_siata[0])
+        #ax1.fill_between(series.index,series.values,color=self.colores_siata[0])
+        ax1.fill_between(series.index, series.values,color=self.colores_siata[1],label='Open values')
+        #ax1.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M\n%d %b'))
         alpha=0.2
         bat = self.last_bat(self.info.x_sensor)
         ymax = max([bat['y'].max(),risk_levels[-1]])
