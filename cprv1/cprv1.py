@@ -882,9 +882,8 @@ class Nivel(SqlDb,wmf.SimuBasin):
                 sections.append(data)
         # Sensor
         if (offset is not None) and (xSensor is not None):
-            label = (sections[0]['x'].max()-df['x'].min())/2.0
-            ax.scatter(label,level,marker='v',color='k',s=30+scatterSize,zorder=22)
-            ax.scatter(label,level,color='white',s=120+scatterSize+10,edgecolors='k')
+            ax.scatter(xSensor,level,marker='v',color='k',s=30+scatterSize,zorder=22)
+            ax.scatter(xSensor,level,color='white',s=120+scatterSize+10,edgecolors='k')
             #ax.annotate('nivel actual',xy=(label,level*1.2),fontsize=8)
             #ax.vlines(xSensor, level,offset,linestyles='--',alpha=0.5,color=self.colores_siata[-1])
         #labels
