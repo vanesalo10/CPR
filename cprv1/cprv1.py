@@ -921,63 +921,6 @@ class Nivel(SqlDb,wmf.SimuBasin):
     def id_df(self):
         return self.read_sql("select fecha,id from id_hydro where codigo = '%s'"%self.codigo).set_index('fecha')['id']
 
-
-    def plot_level(self,series,lamina='current',figsize=(16,4),scatter=True,scatter_size = 0,**kwargs):
-        ''' Plots water level and channel cross section
-        Parameters
-        ----------
-        series : pandas time series to plot (level in cm)
-        lamina: water level (cm) to show in section, if 'max', shows the maximum water level found in window,
-        if 'current', plots the current or last level found in window, if  lamina is float, plots
-        the water cross section value.
-        Returns
-        ----------
-        Level plot with cross section
-        Watch out!
-        ----------
-        data is converted to meters
-        '''
-        series = pd.Series.copy(series/100.0)
-        risk_levels = np.array(self.risk_levels,float)/100.0
-        fig = plt.figure(figsize=figsize)
-        fig.subplots_adjust(wspace=0.1)
-        #gs = GridSpec(3, 3)
-        ax1 = fig.add_subplot(1,2,1)
-        # identical to ax1 = plt.subplot(gs.new_subplotspec((0,0), colspan=3))
-        ax2 = fig.add_subplot(1,2,2,sharey=ax1)
-        ylimit = kwargs.get('ylimit',max(risk_levels)*1.05)
-        series.plot(ax=ax1,label='',color='w',linewidth=0,**kwargs)
-        #ax1.fill_between(series.index,series.values,color=self.colores_siata[0])
-        ax1.fill_between(series.index, series.values,color=self.colores_siata[1],label='Open values')
-        #ax1.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M\n%d %b'))
-        alpha=0.2
-        bat = self.last_bat(self.info.x_sensor)
-        ymax = max([bat['y'].max(),risk_levels[-1]])
-        ax1.set_ylim(0,ymax)
-        ax1.set_xlim(series.index[0],series.index[-1]+datetime.timedelta(minutes=5))
-        # plot section
-        if type(lamina) == str:
-            if lamina == 'current':
-                x,lamina = (series.dropna().index[-1],series.dropna().iloc[-1])
-            else:
-                x,lamina = (series.argmax(),series.max())
-        else:
-            x = series.dropna().index[-1]
-        if scatter:
-            ax1.scatter(x,lamina,marker='v',color='k',s=30+scatter_size,zorder=22)
-            ax1.scatter(x,lamina,color='white',s=120+scatter_size+10,edgecolors='k')
-        sections =self.plot_section(bat,
-                               ax = ax2,
-                               level=lamina,
-                               riskLevels=risk_levels,
-                               xSensor=self.info.x_sensor)
-        ax1.spines['top'].set_color('w')
-        ax1.spines['right'].set_color('w')
-        ax2.spines['top'].set_color('w')
-        ax2.spines['right'].set_color('w')
-        ax2.spines['right'].set_color('w')
-        ax1.set_ylabel('Profundidad [m]')
-
     def gif_level(self,start,end,delay = 30,loop=0,path = "/media/nicolas/maso/Mario/gifs"):
         level = self.level_local(start,end)
         os.system('rm -r %s/*.png'%path)
@@ -1000,3 +943,145 @@ class Nivel(SqlDb,wmf.SimuBasin):
             print('gif saved in path: %s/%s'%(path,file_name))
         else:
             print 'didnt work'
+
+    def plot_level(self,series,lamina='current',resolution='m',legend=True,ax=None,scatter=True,**kwargs):
+        '''
+        Parameters
+        ----------
+        series      : level time series pd.Series
+        resolution  : list,tuple. Niveles de riesgo
+        legend      : risk level legend
+        ax          : axis
+        scatter     : show level icon, bool
+        kwargs : figsize,scatter_size,scatter_color,risk_levels,ymax
+        '''
+        figsize       = kwargs.get('figsize',(12,4))
+        scatter_size  = kwargs.get('scatter_size',0)
+        scatter_color = kwargs.get('scatter_color','k')
+        risk_levels   = kwargs.get('risk_levels',np.array(self.risk_levels,float)/100.0)
+        ymax          = kwargs.get('ymax',max(risk_levels)*1.05)
+        if ax is None:
+            fig = plt.figure(figsize=figsize)
+            ax = fig.add_subplot(111)
+        # plot
+        ax.fill_between(series.index,series.values,color=self.colores_siata[1],label='Open values')
+        # water level
+        if type(lamina) == str:
+            if lamina == 'current':
+                x,lamina = (series.dropna().index[-1],series.dropna().iloc[-1])
+            else:
+                x,lamina = (series.argmax(),series.max())
+        else:
+            x = series.dropna().index[-1]
+        # scatter
+        if scatter:
+            ax.scatter(x,lamina,marker='v',color=scatter_color,s=30+scatter_size,zorder=22)
+            ax.scatter(x,lamina,color='white',s=120+scatter_size+10,edgecolors=scatter_color)
+
+        ax.spines['top'].set_color('w')
+        ax.spines['right'].set_color('w')
+        ax.set_ylabel('Profundidad [%s]'%resolution)
+        # legend
+        if legend:
+            bounds = [(self.loc_time_series(series,0.03)),(self.loc_time_series(series,0.08))]
+            ax.axvspan(bounds[0],
+                       bounds[1],
+                       ymin=0.0,
+                       ymax=risk_levels[0]/ymax,
+                       color='green')
+
+            ax.axvspan(bounds[0],
+                       bounds[1],
+                       ymin=risk_levels[0]/ymax,
+                       ymax=risk_levels[1]/ymax,
+                       color='yellow')
+
+            ax.axvspan(bounds[0],
+                       bounds[1],
+                       ymin=risk_levels[1]/ymax,
+                       ymax=risk_levels[2]/ymax,
+                       color='orange')
+
+            ax.axvspan(bounds[0],
+                       bounds[1],
+                       ymin=risk_levels[2]/ymax,
+                       ymax=ymax,
+                       color='red')
+            ax.set_xlim(series.index[0],bounds[1])
+        ax.set_ylim(0,ymax)
+        return ax
+
+    def loc_time_series(self,series,percent):
+        return series.index[-1]+(series.index[-1]-series.index[0])*percent
+
+    def plot_operacional(self,series,window,minor_locator,major_locator,major_locator_format,filepath):
+        '''
+        Grafica para la pagina oficial de Siata en diferentes ventanas
+        '''
+        font = {'size'   :25}
+        plt.rc('font', **font)
+        # figure
+        fig  = plt.figure(figsize=(16,24))
+        fig.subplots_adjust(hspace=0.8)
+        ax = fig.add_subplot(311)
+        ax.set_title('Serie de tiempo')
+        self.plot_level(series,risk_levels=np.array(self.risk_levels)/100.0,resolution='m',ax=ax,scatter_size=40)
+        for tick in ax.xaxis.get_major_ticks():
+            tick.set_pad( 5.5 * tick.get_pad() )
+        # subaxis for xticks in siata format
+        box = ax.get_position() #mirror
+        subax = fig.add_axes([box.min[0],box.min[1]*0.95, box.width,box.height])
+        subax.patch.set_alpha(0.0)
+        subs = pd.Series(index=series.index)
+        subax.plot(series.index,pd.Series(index=series.index).values,color='w')
+        for loc in ['top','right','left']:
+            subax.spines[loc].set_visible(False)
+        subax.set_xlim(ax.get_xlim())
+        # date locator
+        ax.xaxis.set_major_locator(minor_locator) # notice minor_locator is the max_locator in ax
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
+        subax.xaxis.set_major_locator(major_locator)
+        subax.xaxis.set_major_formatter(mdates.DateFormatter(major_locator_format))
+        subax.yaxis.set_major_locator(plt.NullLocator())
+        # section
+        ax2 = fig.add_subplot(312)
+        alpha=0.2
+        bat = self.last_bat(self.info.x_sensor)
+        ymax = max([bat['y'].max(),(self.risk_levels[-1])/100.0])
+        # plot section
+        if window == '3h':
+            lamina = 'current'
+        else:
+            lamina = 'max'
+        if type(lamina) == str:
+            if lamina == 'current':
+                x,lamina = (series.dropna().index[-1],series.dropna().iloc[-1])
+            else:
+                x,lamina = (series.argmax(),series.max())
+        sections =self.plot_section(bat,
+                                ax = ax2,
+                                level=lamina,
+                                riskLevels=np.array(self.risk_levels)/100.0,
+                                xSensor=self.info.x_sensor,
+                                scatterSize=50)
+        #ax.set_xlabel('TIEMPO')
+        ax2.spines['top'].set_color('w')
+        ax2.spines['right'].set_color('w')
+        ax2.spines['right'].set_color('w')
+        ax2.set_ylim(bat['y'].min(),ymax)
+        ax2.set_title('Profundidad en el canal')
+        ax2.set_ylabel('Profundidad [m]')
+        # ax3 RESUMEN
+        format =   (['ultrasonido','radar'][self.info.tipo_sensor],
+                    series.dropna().index.size*100.0/series.index.size,
+                    series.max(),
+                    (self.convert_level_to_risk(series.max(),self.risk_levels)+1),
+                    series.mean())
+        text= u'Estación de Nivel tipo %s\nResolución temporal: 1 minutos\n%% de datos transmitidos: %.2f\nProfundidad máxima: %.2f [m]\nNivel de riesgo máximo: %d\nProfundidad promedio: %.2f [m]\n*Calidad de datos a\xfan\n sin verificar exhaustivamente'%(format)
+        ax3 = fig.add_subplot(313)
+        ax3.text(0.0,1.3,'RESUMEN',color = self.colores_siata[-1])
+        ax3.text(0.0, 0.0,text,linespacing=2.1)
+        plt.axis('off')
+        plt.suptitle('%s | %s'%(self.codigo,self.info.nombre),y=0.93)
+        plt.savefig(filepath,bbox_inches='tight')
+        return ax,ax2,ax3
