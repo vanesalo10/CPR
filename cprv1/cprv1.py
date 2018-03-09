@@ -1033,7 +1033,6 @@ class Nivel(SqlDb,wmf.SimuBasin):
             lamina = 'current'
         else:
             lamina = 'max'
-        print 'lamina: %s'%lamina
         self.plot_level(series,lamina=lamina,risk_levels=np.array(self.risk_levels)/100.0,resolution='m',ax=ax,scatter_size=40)
         for tick in ax.xaxis.get_major_ticks():
             tick.set_pad( 5.5 * tick.get_pad() )
