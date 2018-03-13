@@ -230,6 +230,7 @@ class SqlDb:
         '''
         pk = self.id_df
         for fecha in series.index:
+            value = series[fecha]
             if math.isnan(value):
                 pass
             else:
