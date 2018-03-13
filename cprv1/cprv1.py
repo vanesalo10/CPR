@@ -272,11 +272,18 @@ class SqlDb:
         ----------
         pandas time Series
         '''
-        start,end = pd.to_datetime(start),pd.to_datetime(end)
+        end = datetime.datetime.now()
+        start = end - datetime.timedelta(days=30)
+        start= pd.to_datetime(start).strftime('%Y-%m-%d %H:%M:00')
+        end = pd.to_datetime(end).strftime('%Y-%m-%d %H:%M:00')
         format = (field,self.codigo,self.fecha_hora_query(start,end))
         df = self.read_sql("SELECT fecha,hora,%s from datos WHERE cliente = '%s' and calidad = '1' and %s"%format)
         # converts centiseconds in 0
-        df['hora'] = df['hora'].apply(lambda x:x[:-3]+':00')
+        try:
+            df['hora'] = df['hora'].apply(lambda x:x[:-3]+':00')
+        except TypeError:
+            df['hora'] = df['hora'].apply(lambda x:str(x)[-8:])
+            df['fecha'] = df['fecha'].apply(lambda x:x.strftime('%Y-%m-%d'))
         # concatenate fecha and hora fields, and makes nan bad datetime indexes
         df.index= pd.to_datetime(df['fecha'] + ' '+ df['hora'],errors='coerce')
         df = df.sort_index()
@@ -1093,7 +1100,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         format =   (['ultrasonido','radar'][self.info.tipo_sensor],
                     series.dropna().index.size*100.0/series.index.size,
                     series.max(),
-                    ['verde','amarillo','naranja','rojo'][self.convert_level_to_risk(series.max(),np.array(self.risk_levels)/100.0)],
+                    ['verde','amarillo','naranja','rojo','rojo'][self.convert_level_to_risk(series.max(),np.array(self.risk_levels)/100.0)],
                     series.mean())
         text= u'Estación de Nivel tipo %s\nResolución temporal: 1 minutos\n%% de datos transmitidos: %.2f\nProfundidad máxima: %.2f [m]\nNivel de riesgo máximo: %s\nProfundidad promedio: %.2f [m]\n*Calidad de datos a\xfan\n sin verificar exhaustivamente'%(format)
         ax3 = fig.add_subplot(313)
