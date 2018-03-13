@@ -585,9 +585,24 @@ class Nivel(SqlDb,wmf.SimuBasin):
         '''
         return self.radar_rain(start,end,ext='.bin')
 
+    def sensor(self,start,end):
+        '''
+        Reads remote sensor level data
+        Parameters
+        ----------
+        start        : initial date
+        end          : final date
+        Returns
+        ----------
+        pandas time series
+        '''
+        sql = SqlDb(codigo = self.codigo,**self.remote_server)
+        s = sql.fecha_hora_format_data(['pr','NI'][self.info.tipo_sensor],start,end)
+        return s
+        
     def level(self,start,end,offset='new'):
         '''
-        Reads rain fields (.bin)
+        Reads remote level data
         Parameters
         ----------
         start        : initial date
@@ -596,8 +611,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         ----------
         pandas DataFrame with datetime index and basin radar fields
         '''
-        sql = SqlDb(codigo = self.codigo,**self.remote_server)
-        s = sql.fecha_hora_format_data(['pr','NI'][self.info.tipo_sensor],start,end)
+        s = self.sensor(start,end)
         if offset == 'new':
             return self.info.offset - s
         else:
