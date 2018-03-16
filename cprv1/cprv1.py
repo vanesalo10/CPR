@@ -1179,7 +1179,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         s = pd.DataFrame(df.loc[df.nivel.notnull()].groupby('codigo')['fecha'].max().sort_values())
         s['nombre'] = self.infost.loc[s.index,'nombre']
         s['delta'] = now-s['fecha']
-        for horas,valor in zip([1,3,24,72],[1,2,3,4]):
+        for horas,valor in zip([1,3,24,72],['green','yellow','orange','red']):
             r = s['fecha']<(now-datetime.timedelta(hours=horas))
             s.loc[s[r].index,'rango']=valor
         return s.dropna()
