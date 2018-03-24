@@ -1227,4 +1227,20 @@ class Nivel(SqlDb,wmf.SimuBasin):
         # write the document to disk
         doc.build(elements)
         #doc.drawString(200,5000,u'Nivel sin riesgo')
+        
+    def add_area_metropol(self,m):
+        m.readshapefile('/media/nicolas/maso/Mario/shapes/AreaMetropolitana','area',linewidth=0.5,color='w')
+        x,y = m(self.info.longitud,self.info.latitud)
+        #m.scatter(x,y,s=100,zorder=10)
+        scatterSize=100
+        m.scatter(x,y,color='grey',s=120+scatterSize+60,edgecolors='grey',zorder=39)
+        m.scatter(x,y,color='w',s=120+scatterSize+60,edgecolors='k',zorder=40)
+        m.scatter(x,y,marker='v',color='k',s=20+scatterSize,zorder=41)
+        municipios = [m.area_info[i]['Name'] for i in range(10)]
+        patches=[]
+        for info,shape in zip(m.area_info,m.area):
+            patches.append(Polygon(np.array(shape),True),)
+        plt.gca().add_collection(PatchCollection(patches,color='grey',edgecolor='w',zorder=1,alpha=0.3,label='asdf'))
+        for frame in ['top','bottom','right','left']:
+            plt.gca().spines[frame].set_color('w')
     
