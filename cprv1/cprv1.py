@@ -865,12 +865,12 @@ class Nivel(SqlDb,wmf.SimuBasin):
         print 'risk dataframe finished'
         return df
 
-    def plot_basin_rain(self,vec,ax=None):
+    def plot_basin_rain(self,vec,cbar=None,ax=None):
         if ax is None:
             fig = plt.figure(figsize=(10,16))
             ax = fig.add_subplot()
         cmap_radar,levels,norm = self.radar_cmap()
-        extra_lat,extra_long = self.adjust_basin(fac=0.02)
+        extra_lat,extra_long = self.adjust_basin(fac=0.01)
         mapa,contour = self.basin_mappable(vec,
                                       ax=ax,
                                       extra_long=extra_long,
@@ -878,12 +878,17 @@ class Nivel(SqlDb,wmf.SimuBasin):
                                       contour_keys={'cmap'  :cmap_radar,
                                                     'levels':levels,
                                                     'norm'  :norm},
-                                     perimeter_keys={'color':'red'})
-
-        cbar = mapa.colorbar(contour,location='bottom',pad="5%")
+                                     perimeter_keys={'color':'k'})
+        if cbar:
+            cbar = mapa.colorbar(contour,location='right',pad="15%")
+            cbar.ax.set_title('mm',fontsize=14)
+        else:
+            cbar = mapa.colorbar(contour,location='right',pad="15%")
+            cbar.remove()
+            plt.draw()
         mapa.readshapefile(self.info.net_path,'net_path')
-        mapa.readshapefile(self.info.net_path,'stream_path')
-	return mapa
+        mapa.readshapefile(self.info.stream_path,'stream_path',linewidth=1)
+        return mapa
 
     def plot_section(self,df,*args,**kwargs):
         '''Grafica de la seccion transversal de estaciones de nivel
