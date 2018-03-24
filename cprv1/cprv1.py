@@ -1247,4 +1247,22 @@ class Nivel(SqlDb,wmf.SimuBasin):
         plt.gca().add_collection(PatchCollection(patches,color='grey',edgecolor='w',zorder=1,alpha=0.3,label='asdf'))
         for frame in ['top','bottom','right','left']:
             plt.gca().spines[frame].set_color('w')
+            
+    def plot_rain_future(self,current_vect,future_vect,filepath=None):
+        plt.close('all')
+        fig = plt.figure(figsize=(16,8))
+        fig.subplots_adjust(left=None,
+                            bottom=None,
+                            right=None,
+                            top=None,
+                            wspace=0.1,
+                            hspace=None)
+        ax1 = fig.add_subplot(121)
+        m = self.plot_basin_rain(current_vect,ax=ax1)
+        self.add_area_metropol(m)
+        ax2 = fig.add_subplot(122)
+        m = self.plot_basin_rain(future_vect,ax=ax2,cbar=True)
+        self.add_area_metropol(m)
+        if filepath:
+            plt.savefig(filepath,bbox_inches='tight')
     
