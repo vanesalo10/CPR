@@ -26,6 +26,15 @@ import matplotlib.font_manager as fm
 warnings.filterwarnings('ignore')
 import locale
 import matplotlib.dates as mdates
+#reportlab libraries
+#from reportlab.lib import colors
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate,Paragraph, Table, TableStyle
+from IPython.display import IFrame
+from reportlab.lib.styles import ParagraphStyle
+from reportlab.lib.enums import TA_LEFT, TA_CENTER
+from reportlab.lib.units import inch
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 #PYTHON CONFIGURATION
 locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
 # configure locale for data in spanish
@@ -280,12 +289,13 @@ class SqlDb:
         start= pd.to_datetime(start).strftime('%Y-%m-%d %H:%M:00')
         end = pd.to_datetime(end).strftime('%Y-%m-%d %H:%M:00')
         format = (field,self.codigo,self.fecha_hora_query(start,end))
-        df = self.read_sql("SELECT fecha,hora,%s from datos WHERE cliente = '%s' and calidad = '1' and %s"%format)
+        sql = SqlDb(codigo = self.codigo,**info.REMOTE)
+        df = sql.read_sql("SELECT fecha,hora,%s from datos WHERE cliente = '%s' and calidad = '1' and %s"%format)
         # converts centiseconds in 0
         try:
             df['hora'] = df['hora'].apply(lambda x:x[:-3]+':00')
         except TypeError:
-            df['hora'] = df['hora'].apply(lambda x:str(x)[-8:])
+            df['hora']=df['hora'].apply(lambda x:str(x)[-8:-8+5]+':00')
             df['fecha'] = df['fecha'].apply(lambda x:x.strftime('%Y-%m-%d'))
         # concatenate fecha and hora fields, and makes nan bad datetime indexes
         df.index= pd.to_datetime(df['fecha'] + ' '+ df['hora'],errors='coerce')
@@ -551,6 +561,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         ----------
         pandas DataFrame or Series with mean radar rain
         '''
+        print 'hola'
         start,end = pd.to_datetime(start),pd.to_datetime(end)
         file = self.check_rain_files(start,end)
         if file:
@@ -564,7 +575,8 @@ class Nivel(SqlDb,wmf.SimuBasin):
         else:
             print 'converting rain data, it may take a while'
             converter = '/media/nicolas/Home/Jupyter/MarioLoco/repositories/CPR/cprv1/RadarConvStra2Basin2.py'
-	    save =  '%s%s'%(self.rain_path,self.file_format(start,end))
+            #converter = '/home/nicolas/self_code/RadarConvStra2Basin3.py'
+            save =  '%s%s'%(self.rain_path,self.file_format(start,end))
             self.get_radar_rain(start,end,self.info.nc_path,self.radar_path,save,converter=converter,utc=True)
             print file
             file = self.rain_path + self.check_rain_files(start,end)
@@ -1183,3 +1195,36 @@ class Nivel(SqlDb,wmf.SimuBasin):
             r = s['fecha']<(now-datetime.timedelta(hours=horas))
             s.loc[s[r].index,'rango']=valor
         return s.dropna()
+
+    def reporte_calidad(self,path):
+        df = self.calidad()
+        df = df[['nombre','fecha','delta','rango']]
+        df = df.reset_index()
+        s = df['rango']
+        df = df.drop('rango',axis=1)
+        lista = []
+        for id in df.index:
+            lista.append(list(df.loc[id]))
+        doc = SimpleDocTemplate(path, pagesize=(520,600))
+        # container for the 'Flowable' objects
+        elements = []
+        style = ParagraphStyle(
+            name='Normal',
+            aligment = TA_LEFT)
+
+        elements.append(Paragraph("Reporte de estaciones caidas", style))
+        lista.insert(0,['Código','Nombre','Último dato','Delta'])
+        data = lista
+        #data = df.applyvalues
+        t=Table(data)
+        for pos,color in zip(s.index,s.values):
+            t.setStyle(TableStyle([('BACKGROUND',(0,pos+1),(0,pos+1),color)]))
+        elements.append(t)
+
+        t.setStyle(TableStyle([('BACKGROUND',(0,0),(-1,0),self.colores_siata[-1]),
+                               ('TEXTCOLOR',(0,0),(-1,0),'white'),
+                               ('ALIGN',(0,0),(-1,0),'CENTER')]))
+        # write the document to disk
+        doc.build(elements)
+        #doc.drawString(200,5000,u'Nivel sin riesgo')
+    
