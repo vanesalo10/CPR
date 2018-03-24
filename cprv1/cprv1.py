@@ -1299,3 +1299,64 @@ class Nivel(SqlDb,wmf.SimuBasin):
         ax.scatter(level.index[-1],level.loc[level.index[-1]],color='grey',s=120+scatterSize+60,edgecolors='grey',zorder=39)
         ax.scatter(level.index[-1],level.loc[level.index[-1]],color='w',s=120+scatterSize+60,edgecolors='k',zorder=40)
         ax.scatter(level.index[-1],level.loc[level.index[-1]],marker='v',color='k',s=20+scatterSize,zorder=41)
+    
+    def rain_report_reportlab(self,filepath,date):
+        current_vect_title = 'Lluvia acumulada en la cuenca en las últimas dos horas'
+        # REPORLAB
+        pdf = canvas.Canvas(filepath+'_report.pdf',pagesize=(900,1200))
+        cx = 0
+        cy = 900
+
+        pdf.drawImage(filepath+'_rain.png',60,650,width=830,height=278)
+        pdf.drawImage(filepath+'_level.png',20,270+20,width=860,height=280)
+        pdf.drawImage('/media/nicolas/Home/Jupyter/MarioLoco/tools/pie.png',0,0,width=905,height=145.451)
+        pdf.drawImage('/media/nicolas/Home/Jupyter/MarioLoco/tools/cabeza.png',0,1020,width=905,height=180)
+        pdf.setFillColor('#%02x%02x%02x' % (8,31,45))
+        pdf.setFont("AvenirBook", 23)
+        pdf.drawString(240,1045,u'Estación %s - %s'%(self.info.nombre,date.strftime('%d %B de %Y')))
+        # últimas dos horas
+        pdf.setFillColor('#%02x%02x%02x' % (8,31,45))
+        pdf.setFont("AvenirBook", 20)
+        pdf.drawString(90,520+300+30+100+30,'Lluvia acumulada en la cuenca')
+        pdf.drawString(90,520+300+10+100+20,'en las últimas dos horas')
+        # Futuro
+        distance = 430
+        pdf.drawString(90+distance-10,520+300+100+40+20,'Lluvia acumulada en la cuenca')
+        pdf.drawString(90+distance-10,520+300+10+100+20,'en la próxima media hora')
+        pdf.drawString(90,270+280+10+20,'Profundidad de la lámina de agua e intensidad promedio en la cuenca')
+
+        #pdf.setFont("AvenirBook", 15)
+
+        pdf.drawImage('/media/nicolas/Home/Jupyter/MarioLoco/tools/leyenda.png',67,180,width=800,height=80)
+
+
+        #N1
+        pdf.setFillColor('#%02x%02x%02x' % (8,31,45))
+        pdf.setFont("AvenirBook", 15)
+        pdf.drawString(80,210,'Nivel seguro')
+        #pdf.drawString(90+distance,520+300+10+100,'en la próxima media hora')
+        factor = 143
+        pdf.drawString(80+factor,210,'Nivel de ')
+        pdf.drawString(80+factor,190,'alerta')
+        #N2
+        factor = 287
+        pdf.drawString(80+factor,210,'Inundación')
+        pdf.drawString(80+factor,190,'menor')
+        #N4
+        factor = 430
+        pdf.drawString(80+factor,210,'Inundación')
+        pdf.drawString(80+factor,190,'mayor')
+        #N4
+        factor = 430
+        y = 30
+        pdf.drawString(700,210+y,'Intensidad de lluvia')
+        pdf.drawString(700,180+y,'Profundidad')
+        pdf.drawString(700,160+y-5,'Profundidad actual')
+
+        #pdf.drawString(90+distance,520+300+10+100,'en la próxima media hora')
+
+        pdf.showPage()
+        pdf.save()
+        #os.system('scp %s mcano@siata.gov.co:/var/www/mario/rainReport/%d'%(ruteSave[:-3]+'pdf',self.codigo))
+        # LOG
+        return os.system('scp %s mcano@siata.gov.co:/var/www/mario/reportes_lluvia/'%(filepath+'_report.pdf'))
