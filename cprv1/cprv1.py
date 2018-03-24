@@ -1301,6 +1301,10 @@ class Nivel(SqlDb,wmf.SimuBasin):
         ax.scatter(level.index[-1],level.loc[level.index[-1]],marker='v',color='k',s=20+scatterSize,zorder=41)
     
     def rain_report_reportlab(self,filepath,date):
+        avenir_book_path = '/media/nicolas/Home/Jupyter/MarioLoco/Tools/AvenirLTStd-Book.ttf'
+        from reportlab.pdfbase import pdfmetrics
+        from reportlab.pdfbase.ttfonts import TTFont
+        pdfmetrics.registerFont(TTFont('AvenirBook', avenir_book_path))
         current_vect_title = 'Lluvia acumulada en la cuenca en las últimas dos horas'
         # REPORLAB
         pdf = canvas.Canvas(filepath+'_report.pdf',pagesize=(900,1200))
