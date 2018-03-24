@@ -1304,6 +1304,14 @@ class Nivel(SqlDb,wmf.SimuBasin):
         avenir_book_path = '/media/nicolas/Home/Jupyter/MarioLoco/Tools/AvenirLTStd-Book.ttf'
         from reportlab.pdfbase import pdfmetrics
         from reportlab.pdfbase.ttfonts import TTFont
+        from reportlab.lib.pagesizes import letter
+        from reportlab.platypus import SimpleDocTemplate,Paragraph, Table, TableStyle
+        from IPython.display import IFrame
+        from reportlab.lib.styles import ParagraphStyle
+        from reportlab.lib.enums import TA_LEFT, TA_CENTER
+        from reportlab.lib.units import inch
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+        from reportlab.pdfgen import canvas
         pdfmetrics.registerFont(TTFont('AvenirBook', avenir_book_path))
         current_vect_title = 'Lluvia acumulada en la cuenca en las últimas dos horas'
         # REPORLAB
