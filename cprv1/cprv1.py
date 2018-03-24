@@ -1271,3 +1271,31 @@ class Nivel(SqlDb,wmf.SimuBasin):
         if filepath:
             plt.savefig(filepath,bbox_inches='tight')
     
+    def plot_level_report(self,level,rain,riesgos,fontsize=14,ncol=4,ax=None,bbox_to_anchor=(1.0,1.2),**kwargs):
+        if ax is None:
+            fig = plt.figure(figsize=(13.,4))
+            ax = fig.add_subplot(111)
+        #nivel = level.resample('H',how='mean')
+        #nivel.plot(ax=ax,label='',color='k')
+        mean_rain = rain
+        ax.set_xlim(level.index[0],mean_rain.index[-1])
+        level.plot(label='',color='k',fontsize=fontsize,lw=2,zorder=20,**kwargs)
+        axu= ax.twinx()
+        axu.set_ylabel('Intensidad promedio [mm/h]',fontsize=fontsize)
+        mean_rain.plot(ax=axu,alpha=0.5,fontsize=fontsize,**kwargs)
+        axu.fill_between(mean_rain.index,0,mean_rain.values,alpha=0.2)
+        ylim = axu.get_ylim()[::-1]
+        ylim = (ylim[0],0.0)
+        axu.set_ylim(ylim)
+        ax.set_ylabel('Profundidad (cm)',fontsize=fontsize)
+        alpha=0.9
+        ax.fill_between(level.index[:3],ax.get_ylim()[0],riesgos[0],alpha=alpha,color='g')
+        ax.fill_between(level.index[:3],riesgos[0],riesgos[1],alpha=alpha,color='yellow')
+        ax.fill_between(level.index[:3],riesgos[1],riesgos[2],alpha=alpha,color='orange')
+        #ax.fill_between(nivel.index,riesgos[2],riesgos[3],alpha=alpha,color='red')
+        ax.fill_between(level.index[:3],riesgos[2],ax.get_ylim()[1],alpha=alpha,color='red')
+        scatterSize=100
+        ax.hlines(level.loc[level.index[-1]],level.index[0],level.index[-1],linewidth=1.0,linestyles='dashed')
+        ax.scatter(level.index[-1],level.loc[level.index[-1]],color='grey',s=120+scatterSize+60,edgecolors='grey',zorder=39)
+        ax.scatter(level.index[-1],level.loc[level.index[-1]],color='w',s=120+scatterSize+60,edgecolors='k',zorder=40)
+        ax.scatter(level.index[-1],level.loc[level.index[-1]],marker='v',color='k',s=20+scatterSize,zorder=41)
