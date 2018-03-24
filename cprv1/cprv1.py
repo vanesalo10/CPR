@@ -536,13 +536,17 @@ class Nivel(SqlDb,wmf.SimuBasin):
         ----------
         file path or None for no coincidences
         '''
-        start,end = pd.to_datetime(start),pd.to_datetime(end)
+        def todate(date):
+            return pd.to_datetime(pd.to_datetime(date).strftime('%Y-%m-%d %H:%M')) 
+        start,end = todate(start),todate(end)
         files = os.listdir(self.rain_path)
         if files:
+            #print files
             for file in files:
                 comienza,finaliza,codigo,usuario = self.file_format_to_variables(file)
                 if (comienza<=start) and (finaliza>=end) and (codigo==self.codigo):
                     file =  file[:file.find('.')]
+                    print file
                     break
                 else:
                     file = None
