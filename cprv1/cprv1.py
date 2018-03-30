@@ -35,6 +35,8 @@ from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.enums import TA_LEFT, TA_CENTER
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+from matplotlib.patches import Polygon
+from matplotlib.collections import PatchCollection
 #PYTHON CONFIGURATION
 locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
 # configure locale for data in spanish
@@ -1394,3 +1396,88 @@ class Nivel(SqlDb,wmf.SimuBasin):
         plt.savefig(filepath+'_level.png',bbox_inches='tight')
         self.rain_report_reportlab(filepath,date)
         print('%s-%s minutes'%(self.codigo,(datetime.datetime.now()-date).seconds/60.0))
+        
+    def level_local_all(self,start,end):
+        start,end = (start.strftime('%Y-%m-%d %H:%M'),end.strftime('%Y-%m-%d %H:%M'))
+        query = "select codigo,fecha,nivel from hydro where fecha between '%s' and '%s'"%(start,end)
+        df = self.read_sql(query).set_index('codigo').loc[self.infost.index].set_index('fecha',append=True)
+        codigos = df.index.levels[0]
+        nivel = df.reset_index('fecha').loc[codigos,'nivel']
+        df = df.reset_index('fecha')
+        df['nivel'] = self.infost.loc[df.index,'offset']-df['nivel']
+        df = df.set_index('fecha',append=True)
+        df[df<0.0] = np.NaN
+        return df.unstack(0)['nivel']
+    
+    def make_rain_report_current(self,codigos):
+        for codigo in codigos:
+            nivel = cpr.Nivel(codigo = codigo,user='sample_user',passwd='s@mple_p@ss',SimuBasin=True)
+            nivel.rain_report(datetime.datetime.now())
+
+    def risk_df(self,df):
+        for codigo in df.columns:
+            risk_levels = np.array(self.infost.loc[codigo,['n1','n2','n3','n4']])
+            df[codigo] = df[codigo].apply(lambda x:self.convert_level_to_risk(x,risk_levels))
+        df = df[df.sum().sort_values(ascending=False).index].T
+        return df
+    
+    def make_risk_report(self,df,figsize=(6,14),bbox_to_anchor = (-0.15, 1.09),ruteSave = None,legend=True):
+        import matplotlib.colors as mcolors
+        from matplotlib.patches import Rectangle
+        def make_colormap(seq):
+            seq = [(None,) * 3, 0.0] + list(seq) + [1.0, (None,) * 3]
+            cdict = {'red': [], 'green': [], 'blue': []}
+            for i, item in enumerate(seq):
+                if isinstance(item, float):
+                    r1, g1, b1 = seq[i - 1]
+                    r2, g2, b2 = seq[i + 1]
+                    cdict['red'].append([item, r1, r2])
+                    cdict['green'].append([item, g1, g2])
+                    cdict['blue'].append([item, b1, b2])
+            return mcolors.LinearSegmentedColormap('CustomMap', cdict)
+        df = df.loc[df.index[::-1]]
+        c = mcolors.ColorConverter().to_rgb
+        cm = make_colormap([c('green'),0.20,c('#f2e71d'),0.4,c('orange'),0.60,c('red'),0.80,c('red')])
+        fig = plt.figure(figsize=figsize)
+        im = plt.imshow(df.values, interpolation='nearest', vmin=0, vmax=4, aspect='equal',cmap=cm);
+        #cbar = fig.colorbar(im)
+        ax = plt.gca();
+        ax.set_xticks(np.arange(0,df.columns.size, 1));
+        ax.set_yticks(np.arange(0, df.index.size, 1));
+        ax.set_xticklabels(df.columns,fontsize=14);
+        ax.set_yticklabels(df.index,fontsize=14,ha = 'left');
+        ax.set_xticks(np.arange(-.5, df.columns.size, 1), minor=True,);
+        ax.set_yticks(np.arange(-.5, df.index.size, 1), minor=True);
+        plt.draw()
+        yax = ax.get_yaxis()
+        pad = max(T.label.get_window_extent().width*1.05 for T in yax.majorTicks)
+        yax.set_tick_params(pad=pad)
+        ax.invert_yaxis()
+        ax.xaxis.tick_top()
+        #ax.Axes.tick_params(axis='x', rotation=45)
+        ax.grid(which='minor', color='w', linestyle='-', linewidth=2)
+        plt.xticks(rotation=90)
+        alpha=1
+        height = 8
+
+    def make_risk_report_current(self):
+        end = datetime.datetime.now()
+        start = end - datetime.timedelta(hours=3)
+        df = self.risk_df(self.level_local_all(start,end))
+        for codigo in df.index:
+            sql = Nivel(codigo = codigo,user='sample_user',passwd='s@mple_p@ss',SimuBasin=False)
+            try:
+                level = sql.level(end-datetime.timedelta(minutes=10),end).resample('5min').mean()
+                df.loc[sql.codigo,level.index] = map(lambda x:sql.convert_level_to_risk(x,sql.risk_levels),level.values)
+            except:
+                pass
+        # estaciones en riesgo
+        in_risk = df.T.loc[end-datetime.timedelta(minutes=20):]
+        in_risk = in_risk.sum()[in_risk.sum()!=0.0].index.values
+        df.columns = map(lambda x:x.strftime('%H:%M'),df.columns)
+        df.index = np.array(df.index.values,str)+(np.array([' | ']*df.index.size)+self.infost.loc[df.index,'nombre'].values)
+        self.make_risk_report(df,figsize=(15,25))
+        filepath = '/media/nicolas/Home/Jupyter/MarioLoco/reportes/reporte_niveles_riesgo_actuales.png'
+        plt.savefig(filepath,bbox_inches='tight')
+        os.system('scp %s mcano@siata.gov.co:/var/www/mario/realTime/'%filepath)
+        return in_risk
