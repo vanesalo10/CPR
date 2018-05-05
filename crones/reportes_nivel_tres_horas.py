@@ -27,22 +27,22 @@ def logger(orig_func):
         start = time.time()
         f = orig_func(*args,**kwargs)
         took = time.time()-start
-        log = 'Ran with kwargs:{},took:{}'.format(kwargs,took)
+        log = '{},{}'.format(start,took)
         print log
         logging.info(log)
         return f
     return wrapper
 
 @logger
-def data_base_query(f_name='db',**kwargs):
+def data_base_query():
     return self.level_all()
 def convert_to_risk(df):
     df = self.risk_df(df)
     return df[df.columns.dropna()]
 @logger
-def risk_report(df,f_name = 'report',**kwargs):
+def risk_report(df):
     return self.make_risk_report_current(df)
 self = cpr.Nivel(codigo = 99,user='sample_user',passwd='s@mple_p@ss',SimuBasin=False)
-df = data_base_query(**{'f_name':'3h all stations'})
+df = data_base_query()
 df = convert_to_risk(df)
-risk_report(df,**{'f_name':'risk report'})
+in_risk = risk_report(df)
