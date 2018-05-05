@@ -1483,6 +1483,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
 
     def make_risk_report_current(self,df):
         # estaciones en riesgo
+        df = df.copy()
         in_risk = df.T
         in_risk = in_risk.sum()[in_risk.sum()!=0.0].index.values
         df.columns = map(lambda x:x.strftime('%H:%M'),df.columns)
