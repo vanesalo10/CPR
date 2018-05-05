@@ -476,7 +476,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
             rain_field.append(wmf.models.read_int_basin('%s.bin'%path,record,self.ncells)[0])
             count = count+1
             format = (count*100.0/len(records),count,len(records))
-            print("progress: %.1f %% - %s out of %s"%format)
+            #print("progress: %.1f %% - %s out of %s"%format)
         return pd.DataFrame(np.matrix(rain_field),index=df.index)
 
     def file_format(self,start,end):
@@ -567,7 +567,6 @@ class Nivel(SqlDb,wmf.SimuBasin):
         ----------
         pandas DataFrame or Series with mean radar rain
         '''
-        print 'hola'
         start,end = pd.to_datetime(start),pd.to_datetime(end)
         file = self.check_rain_files(start,end)
         if file:
@@ -1065,7 +1064,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
     def loc_time_series(self,series,percent):
         return series.index[-1]+(series.index[-1]-series.index[0])*percent
     
-    def plot_operacional(self,series,window,filepath):
+    def plot_operacional(self,series,bat,window,filepath):
         '''
         Parameters
         ----------
@@ -1130,7 +1129,6 @@ class Nivel(SqlDb,wmf.SimuBasin):
         # section
         ax2 = fig.add_subplot(312)
         alpha=0.2
-        bat = self.last_bat(self.info.x_sensor)
         ymax = max([bat['y'].max(),(self.risk_levels[-1])/100.0])
         
             # plot section
@@ -1290,6 +1288,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         ylim = (ylim[0],0.0)
         axu.set_ylim(ylim)
         ax.set_ylabel('Profundidad (cm)',fontsize=fontsize)
+        ax.set_ylim(0,riesgos[-1]*1.2)
         alpha=0.9
         ax.fill_between(level.index[:3],ax.get_ylim()[0],riesgos[0],alpha=alpha,color='g')
         ax.fill_between(level.index[:3],riesgos[0],riesgos[1],alpha=alpha,color='yellow')
@@ -1375,7 +1374,6 @@ class Nivel(SqlDb,wmf.SimuBasin):
         # LOG
         return os.system('scp %s mcano@siata.gov.co:/var/www/mario/reportes_lluvia/'%(filepath+'_report.pdf'))
 
-    
     def rain_report(self,date):
         date = pd.to_datetime(date)
         start = date-datetime.timedelta(minutes=150)# 3 horas atras
@@ -1389,7 +1387,8 @@ class Nivel(SqlDb,wmf.SimuBasin):
         self.plot_rain_future(current_vect,future_vect,filepath = filepath+'_rain')
         # level
         mean_rain = self.radar_rain(start,end)*12.0
-        series = self.level_local(start,date)
+        #series = self.level_local(start,date)
+        series = self.level(start,date).resample('5min').mean()
         series.index.name = ''
         self.plot_level_report(series,mean_rain,self.risk_levels)
         plt.gca().set_xlim(start,end)
@@ -1471,6 +1470,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
                 df.loc[sql.codigo,level.index] = map(lambda x:sql.convert_level_to_risk(x,sql.risk_levels),level.values)
             except:
                 pass
+        df = df[df.columns.dropna()]
         # estaciones en riesgo
         in_risk = df.T.loc[end-datetime.timedelta(minutes=20):]
         in_risk = in_risk.sum()[in_risk.sum()!=0.0].index.values
