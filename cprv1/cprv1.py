@@ -1481,9 +1481,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
                 pass
         return df
 
-    def make_risk_report_current(self):
-        df = self.risk_df(self.level_all())
-        df = df[df.columns.dropna()]
+    def make_risk_report_current(self,df):
         # estaciones en riesgo
         in_risk = df.T
         in_risk = in_risk.sum()[in_risk.sum()!=0.0].index.values
