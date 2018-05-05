@@ -21,13 +21,14 @@ def logger(orig_func):
     import logging
     from functools import wraps
     import time
-    logging.basicConfig(filename = '{}.log'.format(orig_func.__name__),level=logging.INFO)
+    logging.basicConfig(filename = 'reportes_nivel.log',level=logging.INFO)
     @wraps(orig_func)
     def wrapper(*args,**kwargs):
         start = time.time()
         f = orig_func(*args,**kwargs)
+        date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
         took = time.time()-start
-        log = '{},{}'.format(start,took)
+        log = '%s:%s | took %.3f sec'%(orig_func.__name__,date,took)
         print log
         logging.info(log)
         return f
