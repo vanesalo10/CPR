@@ -1416,9 +1416,13 @@ class Nivel(SqlDb,wmf.SimuBasin):
     def risk_df(self,df):
         for codigo in df.columns:
             risk_levels = np.array(self.infost.loc[codigo,['n1','n2','n3','n4']])
-            df[codigo] = df[codigo].apply(lambda x:self.convert_level_to_risk(x,risk_levels))
+            try:
+                df[codigo] = df[codigo].apply(lambda x:self.convert_level_to_risk(x,risk_levels))
+            except:
+                df[codigo] = np.NaN
         df = df[df.sum().sort_values(ascending=False).index].T
         return df
+    
     
     def make_risk_report(self,df,figsize=(6,14),bbox_to_anchor = (-0.15, 1.09),ruteSave = None,legend=True):
         import matplotlib.colors as mcolors
@@ -1459,20 +1463,29 @@ class Nivel(SqlDb,wmf.SimuBasin):
         alpha=1
         height = 8
 
-    def make_risk_report_current(self):
-        end = datetime.datetime.now()
-        start = end - datetime.timedelta(hours=3)
-        df = self.risk_df(self.level_local_all(start,end))
-        for codigo in df.index:
-            sql = Nivel(codigo = codigo,user='sample_user',passwd='s@mple_p@ss',SimuBasin=False)
+
+    def round_time(self,date = datetime.datetime.now(),round_mins=5):
+        mins = date.minute - (date.minute % round_mins)
+        return datetime.datetime(date.year, date.month, date.day, date.hour, mins) + datetime.timedelta(minutes=round_mins)
+
+    def level_all(self,hours=3):
+        end = pd.to_datetime(self.round_time())
+        start = end - datetime.timedelta(hours = hours)
+        codigos = self.infost.index
+        df = pd.DataFrame(index = pd.date_range(start,end,freq='5min'),columns = codigos)
+        for codigo in codigos:
             try:
-                level = sql.level(end-datetime.timedelta(minutes=10),end).resample('5min').mean()
-                df.loc[sql.codigo,level.index] = map(lambda x:sql.convert_level_to_risk(x,sql.risk_levels),level.values)
+                level = Nivel(codigo=codigo,user='sample_user',passwd='s@mple_p@ss').level(start,end).resample('5min').mean()
+                df[codigo] = level
             except:
                 pass
+        return df
+
+    def make_risk_report_current(self):
+        df = self.risk_df(self.level_all())
         df = df[df.columns.dropna()]
         # estaciones en riesgo
-        in_risk = df.T.loc[end-datetime.timedelta(minutes=20):]
+        in_risk = df.T
         in_risk = in_risk.sum()[in_risk.sum()!=0.0].index.values
         df.columns = map(lambda x:x.strftime('%H:%M'),df.columns)
         df.index = np.array(df.index.values,str)+(np.array([' | ']*df.index.size)+self.infost.loc[df.index,'nombre'].values)
