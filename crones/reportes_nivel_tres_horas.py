@@ -79,7 +79,7 @@ df = data_base_query() #dataframe level
 risk_df = convert_to_risk(df.copy()) 
 in_risk = risk_report(risk_df) # risk dataframe
 try:
-    df[risk_df.sum(axis=1).sort_values(ascending=False).index] # ordering stations according to risk
+    df = df[risk_df.sum(axis=1).sort_values(ascending=False).index] # ordering stations according to risk
 except:
     pass
 process_multiple_plots_looping()
