@@ -112,9 +112,10 @@ class SqlDb:
         -------
         DataFrame
         '''
-        df = pd.read_sql(sql,self.conn_db,*keys,**kwargs)
+        conn_db = MySQLdb.connect(self.host,self.user,self.passwd,self.dbname)
+        df = pd.read_sql(sql,conn_db,*keys,**kwargs)
         if close_db == True:
-            self.conn_db.close()
+            conn_db.close()
         return df
 
     def execute_sql(self,query,close_db=True):
