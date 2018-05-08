@@ -8,6 +8,7 @@ import pandas as pd
 import os
 import numpy as np
 
+
 def logger(orig_func):
     '''logging decorator, alters function passed as argument and creates
     log file. (contains function time execution)
@@ -28,7 +29,7 @@ def logger(orig_func):
         f = orig_func(*args,**kwargs)
         date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
         took = time.time()-start
-        log = '%s:%s:%.3f sec'%(date,orig_func.__name__,took)
+        log = '%s:%s:%.1f sec'%(date,orig_func.__name__,took)
         print log
         logging.info(log)
         return f
@@ -79,9 +80,10 @@ df = data_base_query() #dataframe level
 risk_df = convert_to_risk(df.copy()) 
 in_risk = risk_report(risk_df) # risk dataframe
 try:
-    df = df[risk_df.sum(axis=1).sort_values(ascending=False).index] # ordering stations according to risk
+    df[risk_df.sum(axis=1).sort_values(ascending=False).index] # ordering stations according to risk
 except:
     pass
 process_multiple_plots_looping()
-os.system('scp /home/nicolas/reportes_nivel.log mcano@siata.gov.co:/var/www/mario/realTime')
-os.system('scp /home/nicolas/self_code/Crones/niveles_riesgo_error.log mcano@siata.gov.co:/var/www/mario/realTime')
+os.system('scp /home/nicolas/reportes_nivel.log mcano@siata.gov.co:/var/www/mario/nivel_tres_horas_cron.log')
+os.system('scp /home/nicolas/self_code/Crones/niveles_riesgo_error.log mcano@siata.gov.co:/var/www/mario/nivel_tres_horas.log')
+df.to_csv('/media/nicolas/maso/Mario/tres_horas.csv')
