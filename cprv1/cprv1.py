@@ -1494,3 +1494,9 @@ class Nivel(SqlDb,wmf.SimuBasin):
         plt.savefig(filepath,bbox_inches='tight')
         os.system('scp %s mcano@siata.gov.co:/var/www/mario/realTime/'%filepath)
         return in_risk
+    
+    def reporte_nivel(self):
+        def convert_to_risk(df):
+            df = self.risk_df(df)
+            return df[df.columns.dropna()]
+        self.make_risk_report_current(convert_to_risk(self.level_all()))
