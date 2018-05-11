@@ -7,7 +7,8 @@ import datetime
 import pandas as pd
 import os
 import numpy as np
-
+import multiprocessing
+import time
 
 def logger(orig_func):
     '''logging decorator, alters function passed as argument and creates
@@ -43,7 +44,6 @@ def convert_to_risk(df):
     df = self.risk_df(df)
     return df[df.columns.dropna()]
 
-@logger
 def risk_report(df):
     return self.make_risk_report_current(df)
 
@@ -79,11 +79,18 @@ self = cpr.Nivel(codigo = 99,user='sample_user',passwd='s@mple_p@ss',SimuBasin=F
 df = data_base_query() #dataframe level
 risk_df = convert_to_risk(df.copy()) 
 in_risk = risk_report(risk_df) # risk dataframe
+# process order according to risk
 try:
-    df[risk_df.sum(axis=1).sort_values(ascending=False).index] # ordering stations according to risk
+    df[risk_df.sum(axis=1).sort_values(ascending=False).index] # o
 except:
+    print 'ordering didnt work'
     pass
-process_multiple_plots_looping()
-os.system('scp /home/nicolas/reportes_nivel.log mcano@siata.gov.co:/var/www/mario/nivel_tres_horas_cron.log')
-os.system('scp /home/nicolas/self_code/Crones/niveles_riesgo_error.log mcano@siata.gov.co:/var/www/mario/nivel_tres_horas.log')
+#TO KILL PROCESS AFTER CERTAIN PERIOD OF TIME
+if __name__ == '__main__':
+    p = multiprocessing.Process(target=process_multiple_plots_looping, name="")
+    p.start()
+    time.sleep(290) # wait near 5 minutes to kill process
+    p.terminate()
+    p.join()
+    
 df.to_csv('/media/nicolas/maso/Mario/tres_horas.csv')
