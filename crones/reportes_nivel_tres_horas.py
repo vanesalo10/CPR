@@ -23,7 +23,7 @@ def logger(orig_func):
     import logging
     from functools import wraps
     import time
-    logging.basicConfig(filename = 'reportes_nivel.log',level=logging.INFO)
+    logging.basicConfig(filename = 'reporte_nivel.log',level=logging.INFO)
     @wraps(orig_func)
     def wrapper(*args,**kwargs):
         start = time.time()
@@ -94,3 +94,40 @@ if __name__ == '__main__':
     p.join()
     
 df.to_csv('/media/nicolas/maso/Mario/tres_horas.csv')
+
+
+
+import cprv1.cprv1 as cpr
+import datetime
+import os
+import matplotlib.pyplot as plt
+
+try:
+    self = cpr.Nivel(codigo = 302,user='sample_user',passwd='s@mple_p@ss',SimuBasin=False)
+    end = datetime.datetime.now()
+    start = end - datetime.timedelta(hours=2)
+
+    fig = plt.figure(figsize=(20,18))
+    ax1 = fig.add_subplot(2,1,1)
+    ax2 = fig.add_subplot(2,1,2)
+
+
+    s = (self.fecha_hora_format_data('ni',start,end)-2095)/100.
+    s.abs().plot(fontsize=20,ax=ax1)
+    ax1.set_ylabel('Nivel (m)',fontsize=20)
+    ax1.set_xlabel('hora',fontsize=20)
+
+    start = end - datetime.timedelta(hours=12)
+    s = (self.fecha_hora_format_data('ni',start,end)-2095)/100.
+    s.abs().plot(fontsize=20,ax=ax2)
+    ax2.set_ylabel('Nivel (m)',fontsize=20)
+    ax2.set_xlabel('hora',fontsize=20)
+    ax1.set_title('dos horas',fontsize=20)
+    ax2.set_title('doce horas',fontsize=20)
+
+    filepath ='/media/nicolas/Home/Jupyter/MarioLoco/reportes/hidroituango.png'
+    plt.savefig(filepath,bbox_inches='tight')
+    os.system('scp %s mcano@siata.gov.co:/var/www/mario'%filepath)
+except:
+    print 'didnt work'
+    pass
