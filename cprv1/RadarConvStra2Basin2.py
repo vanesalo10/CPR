@@ -68,7 +68,18 @@ for d in datesDias:
 #Organiza las listas de dias y de rutas
 ListDays.sort()
 ListRutas.sort()
-datesDias = [dt.datetime.strptime(d[:12],'%Y%m%d%H%M') for d in ListDays]
+
+print ('LIST DAYS ARE %s'%ListDays)
+
+
+datesDias = []
+for d in ListDays:
+    try:
+        datesDias.append(dt.datetime.strptime(d[:12],'%Y%m%d%H%M'))
+    except:
+        pass
+        
+
 datesDias = pd.to_datetime(datesDias)
 #Obtiene las fechas por Dt
 textdt = '%d' % args.dt
