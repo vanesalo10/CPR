@@ -557,7 +557,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
             file = None
         return file
 
-    def radar_rain(self,start,end,ext='.hdr'):
+    def radar_rain(self,start,end,ext='.hdr',nc_path='default'):
         '''
         Reads rain fields (.bin or .hdr)
         Parameters
@@ -583,7 +583,9 @@ class Nivel(SqlDb,wmf.SimuBasin):
             converter = '/media/nicolas/Home/Jupyter/MarioLoco/repositories/CPR/cprv1/RadarConvStra2Basin2.py'
             #converter = '/home/nicolas/self_code/RadarConvStra2Basin3.py'
             save =  '%s%s'%(self.rain_path,self.file_format(start,end))
-            self.get_radar_rain(start,end,self.info.nc_path,self.radar_path,save,converter=converter,utc=True)
+            if nc_path == 'default':
+                nc_path = self.info.nc_path
+            self.get_radar_rain(start,end,nc_path,self.radar_path,save,converter=converter,utc=True)
             print file
             file = self.rain_path + self.check_rain_files(start,end)
             if ext == '.hdr':
@@ -593,7 +595,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
             obj = obj.loc[start:end]
         return obj
 
-    def radar_rain_vect(self,start,end):
+    def radar_rain_vect(self,start,end,**kwargs):
         '''
         Reads rain fields (.bin)
         Parameters
@@ -604,7 +606,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         ----------
         pandas DataFrame with datetime index and basin radar fields
         '''
-        return self.radar_rain(start,end,ext='.bin')
+        return self.radar_rain(start,end,ext='.bin',**kwargs)
 
     def sensor(self,start,end):
         '''
