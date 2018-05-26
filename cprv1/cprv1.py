@@ -1502,3 +1502,361 @@ class Nivel(SqlDb,wmf.SimuBasin):
             df = self.risk_df(df)
             return df[df.columns.dropna()]
         self.make_risk_report_current(convert_to_risk(self.level_all()))
+        
+        
+class RedRio(Nivel):
+    def __init__(self,**kwargs):
+        Nivel.__init__(self,**kwargs)
+        self.info = pd.Series(index=Nivel(codigo=99,user='mario',passwd='mc@n0Yw2E').info.copy().index)
+        self.info.slug = self.info_redrio.loc[self.codigo,'Nombre'].decode('utf8').encode('ascii', errors='ignore').replace('.','').replace(' ','').replace('(','').replace(')','')
+        self.fecha = '2006-06-06 06:06'
+        self.workspace = '/media/nicolas/Home/Jupyter/MarioLoco/repositories/CPR/documentacion/redrio/'
+        self.seccion = pd.DataFrame(columns = [u'vertical', u'x', u'y', u'v01', u'v02', u'v03', u'v04', u'v05', u'v06', u'v07', u'v08', u'v09', u'vsup'])
+        self.parametros = "id_aforo,fecha,ancho_superficial,caudal_medio,velocidad_media,perimetro,area_total,altura_media,radio_hidraulico"
+        self.aforo = pd.Series(index = [u'fecha', u'ancho_superficial', u'caudal_medio', u'velocidad_media',u'perimetro', u'area_total',
+     u'altura_media', u'radio_hidraulico',u'levantamiento'])
+        self.info.nc_path = '/media/nicolas/maso/Mario/basins/%s.nc'%self.codigo
+        self.info.nombre = self.info_redrio.loc[self.codigo,'Nombre']
+        self.info.longitud = self.info_redrio.loc[self.codigo,'Longitud']
+        self.info.latitud = self.info_redrio.loc[self.codigo,'Latitud']
+        self.levantamiento = pd.DataFrame(columns = ['vertical','x','y'])
+    
+    @property
+    def info_redrio(self):
+        return pd.read_csv('redrio/info_redrio.csv',index_col=0)
+    
+    @property
+    def caudales(self):
+        return self.aforos().set_index('fecha')['caudal']
+    
+    @property
+    def folder_path(self):
+        return self.workspace+pd.to_datetime(self.fecha).strftime('%Y%m%d')+'/'+self.info.slug+'/'
+    
+    @property
+    def aforo_nueva(self):
+        pass
+    
+    @property
+    def seccion_aforo_nueva(self):
+        pass
+    
+    @property
+    def levantamiento_aforo_nueva(self):
+        pass
+    
+    def get_levantamiento(self,id_aforo):
+        seccion = self.read_sql("SELECT * FROM levantamiento_aforo_nueva WHERE id_aforo = '%s'"%(id_aforo)).set_index('vertical')
+        return seccion[['x','y']].sort_index()
+    
+    def aforos(self,filter=True):
+        aforos = self.read_sql("SELECT %s from aforo_nueva where id_estacion_asociada = '%s'"%(self.parametros,self.codigo))
+        aforos = aforos.set_index('id_aforo')
+        if filter:
+            aforos[aforos==-999]=np.NaN
+        aforos = aforos.dropna()
+        aforos = aforos.sort_values('fecha')
+        aforos['levantamiento']=False
+        for id_aforo in aforos.index:
+            if self.get_levantamiento(id_aforo).index.size:
+                aforos.loc[id_aforo,'levantamiento'] = True
+        return aforos
+    @property
+    def levantamientos(self):
+        return self.aforos(filter=False)[self.aforos(filter=False)['levantamiento']].index
+        
+    def insert_vel(self,vertical,v02,v04,v08):
+        self.seccion.loc[vertical,'v02'] = v02
+        self.seccion.loc[vertical,'v04'] = v04
+        self.seccion.loc[vertical,'v08'] = v08
+        
+    def velocidad_media_dovela(self):
+        columns = [u'vertical', u'x', u'y', u'v01', u'v02', u'v03', u'v04', u'v05', u'v06', u'v07', u'v08', u'v09', u'vsup']
+        dfs = self.seccion[columns].copy()
+        self.seccion['vm'] = np.NaN
+        vm = []
+        for index in dfs.index:
+            vm.append(round(self.estima_velocidad_media_vertical(dfs.loc[index].dropna()),3))
+        self.seccion['vm'] = vm
+    def area_dovela(self):
+        self.seccion['area'] = self.get_area(self.seccion['x'].abs().values,self.seccion['y'].abs().values)
+
+    def estima_velocidad_media_vertical(self,vertical,factor=0.0,v_index=0.8):
+        vertical = vertical[vertical.index!='vm']
+        index = list(vertical.index)
+        if index == ['vertical','x','y']:
+            if vertical['x'] == 0.0:
+                vm = factor * self.seccion.loc[vertical.name+1,'vm']
+            else:
+                vm = factor * self.seccion.loc[vertical.name-1,'vm']
+        elif (index == ['vertical','x','y','vsup']) or (index == ['vertical','x','y','v08']):
+            try:
+                vm = v_index*vertical['vsup']
+            except:
+                vm = v_index*vertical['v08']
+        elif (index == ['vertical','x','y','v04']) or (index == ['vertical','x','y','v04','vsup']):
+            vm = vertical['v04']
+        elif index == (['vertical','x','y','v04','v08']) or index == (['vertical','x','y','v04','v08','vsup'])  :
+            vm = (2*vertical['v04']+vertical['v08'])/3.0
+        elif index == ['vertical','x','y','v08','vsup']:
+            vm = v_index*vertical['vsup']
+        elif (index == ['vertical','x','y','v02','v04','v08']) or (index == ['vertical','x','y','v02','v04','v08','vsup']):
+            vm = (2*vertical['v04']+vertical['v08']+vertical['v02'])/4.0
+        return vm
+    
+    def perimetro(self):
+        x,y = (self.seccion['x'].values,self.seccion['y'].values)
+        def perimetro(x,y):
+            p = []
+            for i in range(len(x)-1):
+                p.append(float(np.sqrt(abs(x[i]-x[i+1])**2.0+abs(y[i]-y[i+1])**2.0))) 
+            return [0]+p
+        self.seccion['perimetro'] = perimetro(self.seccion['x'].values,self.seccion['y'].values)
+        
+    def get_area(self,x,y):
+        '''Calcula las áreas y los caudales de cada
+        una de las verticales, con el método de mid-section
+        Input:
+        x = Distancia desde la banca izquierda, type = numpy array
+        y = Produndidad
+        v = Velocidad en la vertical
+        Output:
+        area = Área de la subsección
+        Q = Caudal de la subsección
+        '''
+        # cálculo de áreas
+        d = np.absolute(np.diff(x))/2.
+        b = x[:-1]+d
+        area = np.diff(b)*y[1:-1]
+        area = np.insert(area, 0, d[0]*y[0])
+        area = np.append(area,d[-1]*y[-1])
+        area = np.absolute(area)
+        # cálculo de caudal
+        return area
+    
+    def plot_compara_historicos(self,**kwargs):
+        s = self.aforos()['caudal_medio']
+        filepath = self.folder_path+'historico.png'
+        caudal = self.aforo.caudal_medio
+        xLabel = r"Caudal$\ [m^{3}/s]$"
+        formato = 'png'
+        fig = plt.figure(figsize=(14,4.15))
+        ax1 = plt.subplot(121)    
+        ##CUMULATIVE
+        ser = s.copy()
+        ser.index = range(ser.index.size)
+        p25 = s.quantile(0.25)
+        p75 = s.quantile(0.75)
+        ser.loc[ser.index[-1]+1] = p25
+        ser.loc[ser.index[-1]+1] = p75
+        ser = ser.sort_values()
+        cum_dist = np.linspace(0.,1.,len(ser))
+        ser_cdf = pd.Series(cum_dist, index=ser)
+        lw=4.0
+        ax = ax1.twinx() 
+        ser_cdf = ser_cdf*100
+        ser_cdf.plot(ax=ax,color='orange',drawstyle='steps',label='',lw=lw)
+        ser_cdf[ser_cdf<=25].plot(ax = ax,color='g',drawstyle='steps',label='Caudales bajos',lw=lw)
+        ser_cdf[(ser_cdf>=25)&(ser_cdf<=75)].plot(ax=ax,color='orange',drawstyle='steps',label='Caudales medios',lw=lw)
+        ser_cdf[ser_cdf>=75].plot(ax=ax,color='r',drawstyle='steps',label='Caudales altos',lw=lw)
+        #ax.legend(fontsize=14,bbox_to_anchor=(0.5,-0.3),ncol=1)
+        #ax.set_title('')
+        ax.set_ylabel('Probabilidad [%]',fontsize=16)
+        ax.grid()
+        ax.set_xlim(0,s.max()*1.05)
+        s.hist(ax = ax1,color=self.colores_siata[0],grid=False,bins=20,label='Histograma')
+        ax2 = plt.subplot(122)
+        ax1.axvline(caudal,color=self.colores_siata[-1],\
+                    zorder=40,linestyle='--',\
+                    label='Observado',lw=3.0)
+
+        h1, l1 = ax1.get_legend_handles_labels()
+        h2, l2 = ax.get_legend_handles_labels()
+        ax1.legend(h1+h2, l1+l2, bbox_to_anchor=(1.45,-0.3),ncol=3,fontsize=14)
+        ax1.set_ylabel('Frecuencia',fontsize = 16)
+        ax1.set_xlabel(xLabel,fontsize = 16)
+        for j in ['top','right']:
+            ax1.spines[j].set_edgecolor('white')
+        for j in ['top','right']:
+            ax2.spines[j].set_edgecolor('white')
+        ch = s.describe()[1:]
+        ch.index = ['Media','Std.','Min.','P25','P50','P75','Max.']
+        ch.loc['Obs.'] = caudal
+        ch.sort_values().plot(kind = 'barh',ax=ax2,color=tuple(self.colores_siata[-2]),legend=False)
+        ax2.yaxis.axes.get_yticklines() + ax2.xaxis.axes.get_xticklines()
+        for pos in ['bottom','left']:
+            ax2.spines[pos].set_edgecolor(self.colores_siata[-3])
+        for pos in ['top', 'right']:
+            ax2.spines[pos].set_edgecolor('white')
+        size = s.index.size
+        #plt.suptitle('Aforos históricos, número de datos = %s'%size,x=0.5,y = 1.05,fontsize=16)
+        #ax1.set_title(u'a) Histograma aforos históricos',fontsize = 16)
+        ax1.set_title('')
+        for p in ax2.patches:
+            ax2.annotate('%.2f'%p.get_width(), (p.get_width()*1.04,p.get_y()*1.02),va='bottom',fontsize=16)
+        #ax2.set_title(u'b) Resumen aforos históricos',fontsize=16)
+        ax2.set_xlabel(xLabel,fontsize = 16)
+        import matplotlib as mpl
+        mpl.rcParams['xtick.labelsize'] = 16
+        mpl.rcParams['ytick.labelsize'] = 16
+        plt.tight_layout()
+        text = []
+        labels = ax1.get_xticklabels()
+        for label in labels:
+            text.append(label.get_text())
+        ax2.xaxis.set_ticks(map(lambda x:round(x,2),np.linspace(s.min(),s.max(),4)))
+        plt.savefig(filepath,format = formato,bbox_inches = 'tight')
+    
+    def read_excel_format(self,file):
+        df = pd.read_excel(file)
+        df = df.loc[df['x'].dropna().index]
+        df['vertical'] = range(1,df.index.size+1)
+        df['y'] = df['y'].abs()*-1
+        df.columns = map(lambda x:x.lower(),df.columns)
+        self.seccion = df[self.seccion.columns]
+        df = pd.read_excel(file,sheetname=1)
+        self.aforo.fecha = df.iloc[1].values[1].strftime('%Y-%m-%d')+df.iloc[2].values[1].strftime(' %H:%M')
+        self.aforo['x_sensor'] = df.iloc[4].values[1]
+        self.aforo['lamina'] = df.iloc[5].values[1]
+        df = pd.read_excel(file,sheetname=2)
+        self.levantamiento = df[df.columns[1:]]
+        self.levantamiento.columns = ['x','y']
+        self.levantamiento.index.name = 'vertical'
+        self.aforo.levantamiento = True
+    
+    def rain_area_metropol(self,vec,ax,f=1):
+        cmap_radar,levels,norm = self.radar_cmap()
+        extra_lat,extra_long = self.adjust_basin(fac=0.02)
+        extra_long=0
+        extra_lat=0
+        kwargs = {}
+        contour_keys={'cmap'  :cmap_radar,
+                    'levels':levels,
+                    'norm'  :norm}
+        perimeter_keys={'color':'k','linewidth':1}
+        longs,lats=self.longitude_latitude_basin()
+        x,y=np.meshgrid(longs,lats)
+        y=y[::-1]
+        # map settings
+        m = Basemap(projection='merc',llcrnrlat=lats.min()-0.05*f, urcrnrlat=lats.max()+0.05*f,
+        llcrnrlon=longs.min()-0.05*f, urcrnrlon=longs.max()+0.1*f, resolution='c',ax=ax,**kwargs)
+        # perimeter plot
+        xp,yp = m(self.Polygon[0], self.Polygon[1])
+        m.plot(xp, yp,**perimeter_keys)
+        # vector plot
+        if vec is not None:
+            map_vec,mxll,myll=wmf.cu.basin_2map(self.structure,vec,len(longs),len(lats),self.ncells)
+            map_vec[map_vec==wmf.cu.nodata]=np.nan
+            xm,ym=m(x,y)
+            contour = m.contourf(xm, ym, map_vec.T, 25,**contour_keys)
+        else:
+            contour = None
+        m.readshapefile('/media/nicolas/maso/Mario/shapes/AreaMetropolitana','area',linewidth=0.5,color='w')
+        m.readshapefile('/media/nicolas/maso/Mario/shapes/net/%s/%s'%(self.codigo,self.codigo),str(self.codigo))
+        m.readshapefile('/media/nicolas/maso/Mario/shapes/streams/%s/%s'%(self.codigo,self.codigo),str(self.codigo))
+        x,y = m(self.info.longitud,self.info.latitud)
+        #m.scatter(x,y,s=100,zorder=10)
+        scatterSize=100
+        m.scatter(x,y,color='grey',s=120+scatterSize+60,edgecolors='grey',zorder=39)
+        m.scatter(x,y,color='w',s=120+scatterSize+60,edgecolors='k',zorder=40)
+        m.scatter(x,y,marker='v',color='k',s=20+scatterSize,zorder=41)
+        municipios = [m.area_info[i]['Name'] for i in range(10)]
+        patches=[]
+        for info,shape in zip(m.area_info,m.area):
+            patches.append(Polygon(np.array(shape),True),)
+        ax.add_collection(PatchCollection(patches,color='grey',edgecolor='w',zorder=1,alpha=0.3,label='asdf'))
+        #m.readshapefile('/media/nicolas/maso/Mario/shapes/polygon/145/145','sabanetica',zorder=100)
+        for frame in ['top','bottom','right','left']:
+            ax.spines[frame].set_color('w')
+        cbar = m.colorbar(contour,location='right',pad="5%")
+
+    def plot_lluvia_redrio(self,rain,rain_vect,filepath=None):
+        fig = plt.figure(figsize=(20,8))
+        # lluvia promedio
+        ax1 = fig.add_subplot(121)
+        ax1.set_ylabel('Intensidad (mm/h)')
+        ax1.set_title('%s - %s'%(rain.argmax(),rain.max()))
+        ax1.spines['top'].set_color('w')
+        ax1.spines['right'].set_color('w')
+        rain.plot(ax=ax1,linewidth=3,color='w') # plot
+        ax1.fill_between(rain.index,0,rain.values,facecolor=self.colores_siata[3])
+        # lluvia acumulada
+        ax2 = fig.add_subplot(122)
+        ax2.set_title('Lluvia acumulada')
+        self.rain_area_metropol(rain_vect.sum().values/1000.,ax=ax2)
+        if filepath:
+            plt.savefig(filepath,bbox_inches='tight')
+
+    def plot_bars(s,filepath=None,bar_fontsize=14,decimales=2,xfactor =1.005,yfactor=1.01):
+        plt.figure(figsize=(20,6))
+        #s = df.drop([9,12,13,14]).set_index(u'Estación')[u'Caudal (m3/s)']
+        ax = s.plot(kind='bar')
+        ax.set_ylim(s.min()*0.01,s.max()*1.01)
+        for container in ax.containers:
+                  plt.setp(container, width=0.8)
+        for p in ax.patches:
+            ax.annotate(str(round(p.get_height(),decimales)),
+                        (p.get_x() * xfactor, p.get_height() * yfactor),
+                        fontsize = bar_fontsize)
+        for j in ['top','right']:
+            ax.spines[j].set_edgecolor('white')
+        ax.set_ylabel(r'$Caudal\ [m^3/s]$')
+        if filepath:
+            plt.savefig(filepath,bbox_inches='tight')
+
+    def plot_curvas(self,filepath=None):
+        fig = plt.figure(figsize=(14,20))
+        for i,j in zip(range(1,5),['perimetro','area_total','altura_media','radio_hidraulico']):
+            ax = fig.add_subplot(4,2,i)
+            ax.scatter(self.aforos.dropna()['caudal_medio'].values,self.aforos.dropna()[j].values)
+            ax.scatter(self.aforos.dropna().iloc[-1]['caudal_medio'],self.aforos.dropna().iloc[-1][j])
+            ax.set_xlabel('Caudal')
+            ax.set_ylabel(j)
+        if filepath:
+            plt.savefig(filepath,bbox_inches='tight')
+            
+    def plot_lluvia(self):
+        # entrada
+        #paths
+        folder_path = pd.to_datetime(self.fecha).strftime('%Y%m%d')
+        filepath = self.workspace+folder_path+'/%s'%self.info.slug+'/lluvia.png'
+        # dates
+        fecha = pd.to_datetime(self.fecha).strftime('%Y%m%d')
+        end = pd.to_datetime(fecha)+datetime.timedelta(hours=18)
+        start = end - datetime.timedelta(hours=(18+24-6))
+        rain = self.radar_rain(start,end)*12.# convert hourly rain (intensity (mm/h))
+        rain_vect = self.radar_rain_vect(start,end)
+        print 'fecha:%s,maximo:%s mm/h,fecha maximo:%s'%(fecha,rain.max(),rain.argmax())
+        self.plot_lluvia_redrio(rain,rain_vect,filepath=filepath)
+
+    def plot_levantamientos(self):
+        for id_aforo in self.levantamientos:
+            self.plot_section(self.get_levantamiento(id_aforo),x_sensor=2,level=0.0)
+            plt.title("%s : %s,%s"%(self.info.slug,self.codigo,id_aforo))
+            
+    def procesa_aforo(self):
+        self.velocidad_media_dovela()
+        self.area_dovela()
+        self.seccion['caudal'] = self.seccion.vm*self.seccion.area
+        self.perimetro()
+        self.aforo.caudal_medio = self.seccion.caudal.sum()
+        self.aforo.area_total = self.seccion.area.sum()
+        self.aforo.velocidad_media = self.aforo.caudal_medio/self.aforo.area_total
+        self.aforo.ancho_superficial = self.seccion['x'].abs().max()-self.seccion['x'].abs().min()
+        self.aforo.perimetro = self.seccion.perimetro.sum()
+        self.aforo.altura_media = self.seccion.y.abs().mean()
+        self.aforo.radio_hidraulico = self.aforo.area_total/self.aforo.perimetro
+        self.fecha = self.aforo.fecha
+        
+    def plot_seccion(self):
+        self.plot_section(self.levantamiento,x_sensor = self.aforo.x_sensor,level=self.aforo.lamina,fontsize=20)
+        ax = plt.gca()
+        plt.rc('font', **{'size':20})
+        ax.scatter(self.aforo.x_sensor,self.aforo.lamina,marker='v',color='k',s=30+30,zorder=22)
+        ax.scatter(self.aforo.x_sensor,self.aforo.lamina,color='white',s=120+30+10,edgecolors='k')
+        ax.legend()
+        ax.set_ylabel('Profundidad [m]')
+        ax.spines['top'].set_color('w')
+        ax.spines['right'].set_color('w')
+        plt.savefig(self.folder_path+'seccion.png',bbox_inches='tight')  
+        
