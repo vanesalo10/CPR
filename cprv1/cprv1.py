@@ -1874,3 +1874,4 @@ class RedRio(Nivel):
         self.levantamiento = self.levantamiento.append(pd.DataFrame(np.matrix(intersection),index=['self.aforo.x_sensor'],columns=['x','y'])).sort_values('x')
         self.levantamiento['y'] = self.levantamiento['y']-intersection[1]
         self.levantamiento.index = range(1,self.levantamiento.index.size+1)
+        self.levantamiento.index.name = 'vertical'
