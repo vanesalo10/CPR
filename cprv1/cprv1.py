@@ -1849,7 +1849,8 @@ class RedRio(Nivel):
         self.fecha = self.aforo.fecha
         
     def plot_seccion(self):
-        self.plot_section(self.levantamiento,x_sensor = self.aforo.x_sensor,level=self.aforo.lamina,fontsize=20)
+        self.ajusta_levantamiento()
+        self.plot_section(self.levantamiento,xSensor = self.aforo.x_sensor,level=self.aforo.lamina,fontsize=20)
         ax = plt.gca()
         plt.rc('font', **{'size':20})
         ax.scatter(self.aforo.x_sensor,self.aforo.lamina,marker='v',color='k',s=30+30,zorder=22)
@@ -1858,5 +1859,18 @@ class RedRio(Nivel):
         ax.set_ylabel('Profundidad [m]')
         ax.spines['top'].set_color('w')
         ax.spines['right'].set_color('w')
-        plt.savefig(self.folder_path+'seccion.png',bbox_inches='tight')  
-        
+        plt.savefig(self.folder_path+'seccion.png',bbox_inches='tight') 
+
+    def ajusta_levantamiento(self):
+        cond = (self.levantamiento['x']<self.aforo.x_sensor).values
+        flag = cond[0]
+        for i,j in enumerate(cond):
+            if j==flag:
+                pass
+            else:
+                point = (tuple(self.levantamiento.iloc[i-1].values),tuple(self.levantamiento.iloc[i].values))
+            flag = j
+        intersection = self.line_intersection(point,((self.aforo.x_sensor,0.1*self.levantamiento['y'].min()),(self.aforo.x_sensor,1.1*self.levantamiento['y'].max(),(self.aforo.x_sensor,))))
+        self.levantamiento = self.levantamiento.append(pd.DataFrame(np.matrix(intersection),index=['self.aforo.x_sensor'],columns=['x','y'])).sort_values('x')
+        self.levantamiento['y'] = self.levantamiento['y']-intersection[1]
+        self.levantamiento.index = range(1,self.levantamiento.index.size+1)
