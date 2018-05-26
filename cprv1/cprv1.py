@@ -1875,3 +1875,12 @@ class RedRio(Nivel):
         self.levantamiento['y'] = self.levantamiento['y']-intersection[1]
         self.levantamiento.index = range(1,self.levantamiento.index.size+1)
         self.levantamiento.index.name = 'vertical'
+
+    def to_excel(self):
+        from pandas import ExcelWriter
+        excel_filepath = self.folder_path+'resultado.xlsx'
+        writer =  ExcelWriter(excel_filepath)
+        self.aforo.to_excel(writer,'informacion')
+        self.seccion.to_excel(writer,'seccion')
+        self.levantamiento.to_excel(writer,'levantamiento')
+        writer.save()
