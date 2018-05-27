@@ -1521,8 +1521,8 @@ class RedRio(Nivel):
         self.info.latitud = self.info_redrio.loc[self.codigo,'Latitud']
         self.levantamiento = pd.DataFrame(columns = ['vertical','x','y'])
         self.alturas = pd.DataFrame(index=pd.date_range(start = pd.to_datetime('2018').strftime('%Y-%m-%d 06:00'),periods=13,freq='H'),columns = ['profundidad','offset','lamina','caudal'])
-self.alturas.index = map(lambda x:x.strftime('%H:00'),self.alturas.index)
-    
+        self.alturas.index = map(lambda x:x.strftime('%H:00'),self.alturas.index)
+        
     @property
     def info_redrio(self):
         return pd.read_csv('redrio/info_redrio.csv',index_col=0)
