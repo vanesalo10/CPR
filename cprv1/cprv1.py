@@ -1882,7 +1882,16 @@ class RedRio(Nivel):
         from pandas import ExcelWriter
         excel_filepath = self.folder_path+'resultado.xlsx'
         writer =  ExcelWriter(excel_filepath)
-        self.aforo.to_excel(writer,'informacion')
-        self.seccion.to_excel(writer,'seccion')
+        informacion = self.aforo.append(self.info_redrio.loc[self.codigo].iloc[:-1].drop('FolderName')).copy()
+        informacion.to_excel(writer,'informacion',header=False)
+        workbook  = writer.book
+        worksheet = writer.sheets['informacion']
+        worksheet.set_column('A:B', 20)
+        self.seccion.set_index('vertical').to_excel(writer,'seccion')
         self.levantamiento.to_excel(writer,'levantamiento')
+        self.alturas.index.name = 'Hora'
+        self.alturas.fillna('').to_excel(writer,'caudales_horarios')
+        workbook  = writer.book
+        worksheet = writer.sheets['caudales_horarios']
+        worksheet.set_column('B:B', 15)
         writer.save()
