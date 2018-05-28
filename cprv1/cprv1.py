@@ -1877,6 +1877,23 @@ class RedRio(Nivel):
         self.levantamiento['y'] = self.levantamiento['y']-intersection[1]
         self.levantamiento.index = range(1,self.levantamiento.index.size+1)
         self.levantamiento.index.name = 'vertical'
+        
+    def procesa_horarios(self):
+        df_alturas = pd.DataFrame(index=self.alturas.index,columns=self.seccion.vertical)
+        df_areas = df_alturas.copy()
+        df_caudales = df_areas.copy()
+        diferencias = self.alturas['profundidad']-self.alturas.loc[pd.to_datetime(self.aforo.fecha).strftime('%H:00'),'profundidad']
+        for count,dif in enumerate(diferencias.values):
+            alturas = (self.seccion['y'].abs()+dif).values
+            alturas[alturas<=0.0] = 0.0
+            area = self.get_area(self.seccion['x'].values,alturas)
+            caudal = area*self.seccion['vm'].values
+            df_alturas.iloc[count] = alturas
+            df_areas.iloc[count] = area
+            df_caudales.iloc[count] = caudal
+        self.h_horaria = df_alturas
+        self.a_horaria = df_areas
+        self.q_horaria = df_caudales
 
     def to_excel(self):
         from pandas import ExcelWriter
@@ -1894,4 +1911,12 @@ class RedRio(Nivel):
         workbook  = writer.book
         worksheet = writer.sheets['caudales_horarios']
         worksheet.set_column('B:B', 15)
+        try:
+            self.alturas.to_excel(writer,'profundidades_reportadas')
+            self.h_horaria.to_excel(writer,'h_horaria')
+            self.a_horaria.to_excel(writer,'a_horaria')
+            self.q_horaria.to_excel(writer,'q_horaria')
+        except:
+            print 'no hourly data'
+            pass
         writer.save()
