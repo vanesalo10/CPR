@@ -1789,10 +1789,11 @@ class RedRio(Nivel):
         if filepath:
             plt.savefig(filepath,bbox_inches='tight')
 
-    def plot_bars(self,s,filepath=None,bar_fontsize=14,decimales=2,xfactor =1.005,yfactor=1.01):
-        plt.figure(figsize=(20,6))
-        #s = df.drop([9,12,13,14]).set_index(u'Estación')[u'Caudal (m3/s)']
-        ax = s.plot(kind='bar')
+    def plot_bars(self,s,filepath=None,bar_fontsize=14,decimales=2,xfactor =1.005,yfactor=1.01,ax=None):
+        if ax is None:
+            plt.figure(figsize=(20,6))
+            
+        s.plot(kind='bar',ax=ax)
         ax.set_ylim(s.min()*0.01,s.max()*1.01)
         for container in ax.containers:
                   plt.setp(container, width=0.8)
@@ -1894,6 +1895,7 @@ class RedRio(Nivel):
         self.h_horaria = df_alturas
         self.a_horaria = df_areas
         self.q_horaria = df_caudales
+        self.alturas['caudal'] = self.q_horaria.sum(axis=1).values
 
     def to_excel(self):
         from pandas import ExcelWriter
