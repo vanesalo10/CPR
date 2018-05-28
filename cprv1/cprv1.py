@@ -1789,7 +1789,7 @@ class RedRio(Nivel):
         if filepath:
             plt.savefig(filepath,bbox_inches='tight')
 
-    def plot_bars(s,filepath=None,bar_fontsize=14,decimales=2,xfactor =1.005,yfactor=1.01):
+    def plot_bars(self,s,filepath=None,bar_fontsize=14,decimales=2,xfactor =1.005,yfactor=1.01):
         plt.figure(figsize=(20,6))
         #s = df.drop([9,12,13,14]).set_index(u'Estación')[u'Caudal (m3/s)']
         ax = s.plot(kind='bar')
