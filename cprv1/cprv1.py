@@ -1846,7 +1846,7 @@ class RedRio(Nivel):
         self.aforo.velocidad_media = self.aforo.caudal_medio/self.aforo.area_total
         self.aforo.ancho_superficial = self.seccion['x'].abs().max()-self.seccion['x'].abs().min()
         self.aforo.perimetro = self.seccion.perimetro.sum()
-        self.aforo.altura_media = self.seccion.y.abs().mean()
+        self.aforo.altura_media = self.seccion['y'].abs()[self.seccion['y'].abs()>0.0].mean()
         self.aforo.radio_hidraulico = self.aforo.area_total/self.aforo.perimetro
         self.fecha = self.aforo.fecha
         
