@@ -1471,9 +1471,13 @@ class Nivel(SqlDb,wmf.SimuBasin):
         mins = date.minute - (date.minute % round_mins)
         return datetime.datetime(date.year, date.month, date.day, date.hour, mins) + datetime.timedelta(minutes=round_mins)
 
-    def level_all(self,hours=3):
-        end = pd.to_datetime(self.round_time())
-        start = end - datetime.timedelta(hours = hours)
+    def level_all(self,start=None,end = None,hours=3):
+        if start:
+            start = pd.to_datetime(start)
+            end = pd.to_datetime(end)
+        else:
+            end = pd.to_datetime(self.round_time())
+            start = end - datetime.timedelta(hours = hours)
         codigos = self.infost.index
         df = pd.DataFrame(index = pd.date_range(start,end,freq='5min'),columns = codigos)
         for codigo in codigos:
@@ -1483,6 +1487,8 @@ class Nivel(SqlDb,wmf.SimuBasin):
             except:
                 pass
         return df
+
+
 
     def make_risk_report_current(self,df):
         # estaciones en riesgo
@@ -1503,6 +1509,125 @@ class Nivel(SqlDb,wmf.SimuBasin):
             return df[df.columns.dropna()]
         self.make_risk_report_current(convert_to_risk(self.level_all()))
         
+    def rain_area_metropol(self,vec,ax,f=1):
+        cmap_radar,levels,norm = self.radar_cmap()
+        extra_lat,extra_long = self.adjust_basin(fac=0.02)
+        extra_long=0
+        extra_lat=0
+        kwargs = {}
+        contour_keys={'cmap'  :cmap_radar,
+                    'levels':levels,
+                    'norm'  :norm}
+        perimeter_keys={'color':'k','linewidth':1}
+        longs,lats=self.longitude_latitude_basin()
+        x,y=np.meshgrid(longs,lats)
+        y=y[::-1]
+        # map settings
+        m = Basemap(projection='merc',llcrnrlat=lats.min()-0.05*f, urcrnrlat=lats.max()+0.05*f,
+        llcrnrlon=longs.min()-0.05*f, urcrnrlon=longs.max()+0.1*f, resolution='c',ax=ax,**kwargs)
+        # perimeter plot
+        xp,yp = m(self.Polygon[0], self.Polygon[1])
+        m.plot(xp, yp,**perimeter_keys)
+        # vector plot
+        if vec is not None:
+            map_vec,mxll,myll=wmf.cu.basin_2map(self.structure,vec,len(longs),len(lats),self.ncells)
+            map_vec[map_vec==wmf.cu.nodata]=np.nan
+            xm,ym=m(x,y)
+            contour = m.contourf(xm, ym, map_vec.T, 25,**contour_keys)
+        else:
+            contour = None
+        m.readshapefile('/media/nicolas/maso/Mario/shapes/AreaMetropolitana','area',linewidth=0.5,color='w')
+        m.readshapefile('/media/nicolas/maso/Mario/shapes/net/%s/%s'%(self.codigo,self.codigo),str(self.codigo))
+        m.readshapefile('/media/nicolas/maso/Mario/shapes/streams/%s/%s'%(self.codigo,self.codigo),str(self.codigo))
+        x,y = m(self.info.longitud,self.info.latitud)
+        #m.scatter(x,y,s=100,zorder=10)
+        scatterSize=100
+        m.scatter(x,y,color='grey',s=120+scatterSize+60,edgecolors='grey',zorder=39)
+        m.scatter(x,y,color='w',s=120+scatterSize+60,edgecolors='k',zorder=40)
+        m.scatter(x,y,marker='v',color='k',s=20+scatterSize,zorder=41)
+        municipios = [m.area_info[i]['Name'] for i in range(10)]
+        patches=[]
+        for info,shape in zip(m.area_info,m.area):
+            patches.append(Polygon(np.array(shape),True),)
+        ax.add_collection(PatchCollection(patches,color='grey',edgecolor='w',zorder=1,alpha=0.3,label='asdf'))
+        #m.readshapefile('/media/nicolas/maso/Mario/shapes/polygon/145/145','sabanetica',zorder=100)
+        for frame in ['top','bottom','right','left']:
+            ax.spines[frame].set_color('w')
+        cbar = m.colorbar(contour,location='right',pad="5%")
+        
+    def convert_series_to_risk(self,level):
+        '''level: pandas Series, index = codigos de estaciones'''
+        risk = level.copy()
+        colors = ['green','gold','orange','red','red','black']
+        for codigo in level.index:
+            try:
+                risks = cpr.Nivel(codigo = codigo,user='sample_user',passwd='s@mple_p@ss').risk_levels
+                risk[codigo] = colors[int(self.convert_level_to_risk(level[codigo],risks))]
+            except:
+                risk[codigo] = 'black'
+        return risk
+
+    def reporte_lluvia(self,end,filepath=None):
+            self = Nivel(codigo=260,user='sample_user',passwd = 's@mple_p@ss',SimuBasin=True)
+            #end = datetime.datetime.now()
+            start = end - datetime.timedelta(hours=3)
+            posterior = end + datetime.timedelta(minutes=10)
+            rain = self.radar_rain(start,posterior)
+            rain_vect = self.radar_rain_vect(start,posterior)
+            codigos = self.infost.index
+            df = pd.DataFrame(index = rain_vect.index,columns=codigos)
+            for codigo in codigos:
+                mask_path = '/media/nicolas/maso/Mario/mask/mask_%s.tif'%(codigo)
+                try:
+                    mask_map = wmf.read_map_raster(mask_path)
+                    mask_vect = self.Transform_Map2Basin(mask_map[0],mask_map[1])
+                except AttributeError:
+                    print 'mask:%s'%codigo
+                    mask_vect = None
+                if mask_vect is not None:
+                    mean = []
+                    for date in rain_vect.index:
+                        try:
+                            mean.append(np.sum(mask_vect*rain_vect.loc[date])/np.sum(mask_vect))
+                        except:
+                            print 'mean:%s'%codigo
+                    if len(mean)>0:
+                        df[codigo] = mean
+            df_posterior = df.loc[end:]
+            plt.rc('font', **{'size'   :16})
+            fig = plt.figure(figsize=(20,20))
+            fig.subplots_adjust(hspace=1.1)
+            ax1 = fig.add_subplot(211)
+            ax2 = fig.add_subplot(212)
+            suma = (df/1000.).sum().sort_values(ascending=False)
+            suma = suma[suma>0.0]
+            orden = np.array(suma.index,int)
+            suma.index = self.infost.loc[suma.index,'nombre']
+            risk = self.convert_series_to_risk(self.level_all(hours=1).iloc[-3:].max())
+            dfb = pd.DataFrame(index=suma.index,columns=['rain','color'])
+            dfb['rain'] = suma.values
+            dfb['color'] = risk.loc[orden].values
+            dfb.plot.bar(y='rain', color=[dfb['color']],ax=ax1)
+            #suma.plot(kind='bar',color = list(),ax=ax1)
+            title = 'start: %s, end: %s'%(start.strftime('%Y-%m-%d %H:%M'),end.strftime('%Y-%m-%d %H:%M'))
+            filepath = '/media/nicolas/Home/Jupyter/MarioLoco/reportes/lluvia_en_cuencas.png'
+            ax1.set_title(title)
+            ax1.set_ylabel('lluvia acumulada\n promedio en la cuenca [mm]')
+            suma = (df_posterior/1000.).sum().loc[orden]
+            suma.index = self.infost.loc[suma.index,'nombre']
+            dfb = pd.DataFrame(index=suma.index,columns=['rain','color'])
+            dfb['rain'] = suma.values
+            dfb['color'] = risk.loc[orden].values
+            dfb.plot.bar(y='rain', color=[dfb['color']],ax=ax2)
+            #suma.plot(kind='bar',ax=ax2)
+            filepath = '/media/nicolas/Home/Jupyter/MarioLoco/reportes/lluvia_en_cuencas.png'
+            ax2.set_title(u'lluvia acumulada en la próxima media hora')
+            ax2.set_ylabel('lluvia acumulada\n promedio en la cuenca [mm]')
+            ax1.set_ylim(0,30)
+            ax2.set_ylim(0,30)
+            if filepath:
+                plt.savefig(filepath,bbox_inches='tight')
+            #os.system('scp %s mcano@siata.gov.co:/var/www/mario/realTime/reporte_lluvia_cuenca.png'%filepath)
         
 class RedRio(Nivel):
     def __init__(self,**kwargs):
@@ -1726,61 +1851,16 @@ class RedRio(Nivel):
         self.levantamiento.index.name = 'vertical'
         self.aforo.levantamiento = True
     
-    def rain_area_metropol(self,vec,ax,f=1):
-        cmap_radar,levels,norm = self.radar_cmap()
-        extra_lat,extra_long = self.adjust_basin(fac=0.02)
-        extra_long=0
-        extra_lat=0
-        kwargs = {}
-        contour_keys={'cmap'  :cmap_radar,
-                    'levels':levels,
-                    'norm'  :norm}
-        perimeter_keys={'color':'k','linewidth':1}
-        longs,lats=self.longitude_latitude_basin()
-        x,y=np.meshgrid(longs,lats)
-        y=y[::-1]
-        # map settings
-        m = Basemap(projection='merc',llcrnrlat=lats.min()-0.05*f, urcrnrlat=lats.max()+0.05*f,
-        llcrnrlon=longs.min()-0.05*f, urcrnrlon=longs.max()+0.1*f, resolution='c',ax=ax,**kwargs)
-        # perimeter plot
-        xp,yp = m(self.Polygon[0], self.Polygon[1])
-        m.plot(xp, yp,**perimeter_keys)
-        # vector plot
-        if vec is not None:
-            map_vec,mxll,myll=wmf.cu.basin_2map(self.structure,vec,len(longs),len(lats),self.ncells)
-            map_vec[map_vec==wmf.cu.nodata]=np.nan
-            xm,ym=m(x,y)
-            contour = m.contourf(xm, ym, map_vec.T, 25,**contour_keys)
-        else:
-            contour = None
-        m.readshapefile('/media/nicolas/maso/Mario/shapes/AreaMetropolitana','area',linewidth=0.5,color='w')
-        m.readshapefile('/media/nicolas/maso/Mario/shapes/net/%s/%s'%(self.codigo,self.codigo),str(self.codigo))
-        m.readshapefile('/media/nicolas/maso/Mario/shapes/streams/%s/%s'%(self.codigo,self.codigo),str(self.codigo))
-        x,y = m(self.info.longitud,self.info.latitud)
-        #m.scatter(x,y,s=100,zorder=10)
-        scatterSize=100
-        m.scatter(x,y,color='grey',s=120+scatterSize+60,edgecolors='grey',zorder=39)
-        m.scatter(x,y,color='w',s=120+scatterSize+60,edgecolors='k',zorder=40)
-        m.scatter(x,y,marker='v',color='k',s=20+scatterSize,zorder=41)
-        municipios = [m.area_info[i]['Name'] for i in range(10)]
-        patches=[]
-        for info,shape in zip(m.area_info,m.area):
-            patches.append(Polygon(np.array(shape),True),)
-        ax.add_collection(PatchCollection(patches,color='grey',edgecolor='w',zorder=1,alpha=0.3,label='asdf'))
-        #m.readshapefile('/media/nicolas/maso/Mario/shapes/polygon/145/145','sabanetica',zorder=100)
-        for frame in ['top','bottom','right','left']:
-            ax.spines[frame].set_color('w')
-        cbar = m.colorbar(contour,location='right',pad="5%")
 
     def plot_lluvia_redrio(self,rain,rain_vect,filepath=None):
         fig = plt.figure(figsize=(20,8))
         # lluvia promedio
         ax1 = fig.add_subplot(121)
         ax1.set_ylabel('Intensidad (mm/h)')
-        ax1.set_title('%s - %s'%(rain.argmax(),rain.max()))
+        #ax1.set_title('%s - %s'%(rain.argmax(),rain.max()))
         ax1.spines['top'].set_color('w')
         ax1.spines['right'].set_color('w')
-        rain.plot(ax=ax1,linewidth=3,color='w') # plot
+        rain.plot(ax=ax1,linewidth=1,color='grey') # plot
         ax1.fill_between(rain.index,0,rain.values,facecolor=self.colores_siata[3])
         # lluvia acumulada
         ax2 = fig.add_subplot(122)
@@ -1829,7 +1909,7 @@ class RedRio(Nivel):
         start = end - datetime.timedelta(hours=(18+24-6))
         rain = self.radar_rain(start,end)*12.# convert hourly rain (intensity (mm/h))
         rain_vect = self.radar_rain_vect(start,end)
-        print 'fecha:%s,maximo:%s mm/h,fecha maximo:%s'%(fecha,rain.max(),rain.argmax())
+        #print 'fecha:%s,maximo:%s mm/h,fecha maximo:%s'%(fecha,rain.max(),rain.argmax())
         self.plot_lluvia_redrio(rain,rain_vect,filepath=filepath)
 
     def plot_levantamientos(self):
