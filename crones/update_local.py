@@ -8,6 +8,8 @@ import pandas as pd
 import os
 import numpy as np
 
+os.system('scp /home/nicolas/self_code/Crones/update_local_cron.log mcano@siata.gov.co:/var/www/mario')
+os.system('scp /home/nicolas/update_local.log mcano@siata.gov.co:/var/www/mario')
 
 def logger(orig_func):
     '''logging decorator, alters function passed as argument and creates
