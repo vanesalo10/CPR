@@ -62,7 +62,7 @@ class SqlDb:
     def __init__(self,dbname,user,host,passwd,port,table=None,codigo=None,
                 *keys,**kwargs):
         '''
-        instance and properties
+        Instance and properties
         '''
         self.table  = table
         self.host   = host
