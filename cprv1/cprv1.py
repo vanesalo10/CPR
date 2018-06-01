@@ -1762,7 +1762,7 @@ class RedRio(Nivel):
         return area
     
     def plot_compara_historicos(self,**kwargs):
-        s = self.aforos()['caudal_medio']
+        s = kwargs.get('s',self.aforos()['caudal_medio'])
         filepath = self.folder_path+'historico.png'
         caudal = self.aforo.caudal_medio
         xLabel = r"Caudal$\ [m^{3}/s]$"
