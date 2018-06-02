@@ -1303,6 +1303,39 @@ class Nivel(SqlDb,wmf.SimuBasin):
         ax.scatter(level.index[-1],level.loc[level.index[-1]],color='grey',s=120+scatterSize+60,edgecolors='grey',zorder=39)
         ax.scatter(level.index[-1],level.loc[level.index[-1]],color='w',s=120+scatterSize+60,edgecolors='k',zorder=40)
         ax.scatter(level.index[-1],level.loc[level.index[-1]],marker='v',color='k',s=20+scatterSize,zorder=41)
+        
+    def rain_report(self,date):
+        #def rain_report(self,date):
+        date = pd.to_datetime(date)
+        start = date-datetime.timedelta(minutes=150)# 3 horas atras
+        end = date+datetime.timedelta(minutes=30) 
+        #filepaths
+        local_path = '/media/nicolas/Home/Jupyter/MarioLoco/reportes_lluvia/'
+        remote_path = 'mcano@siata.gov.co:/var/www/mario/reportes_lluvia/'
+        day_path = local_path + date.strftime('%Y%m%d')+'/'
+        station_path = day_path+str(self.codigo)+'/'
+        filepath = station_path+self.file_format(start,end)
+        #make directories
+        os.system('mkdir %s'%day_path)
+        os.system('mkdir %s'%station_path)
+        #rain
+        vec = self.radar_rain(start,end,ext='.bin')
+        current_vect = vec.drop(vec.loc[date:].index).sum().values/1000
+        future_vect = vec.drop(vec.loc[:date].index).sum().values/1000
+        # level
+        mean_rain = self.radar_rain(start,end)*12.0
+        series = self.level(start,date).resample('5min').mean()
+        series.index.name = ''
+        #plots
+        self.plot_rain_future(current_vect,future_vect,filepath = filepath+'_rain')
+        self.plot_level_report(series,mean_rain,self.risk_levels)
+        plt.gca().set_xlim(start,end)
+        plt.savefig(filepath+'_level.png',bbox_inches='tight')
+        self.rain_report_reportlab(filepath,date)
+        os.system('ssh mcano@siata.gov.co "mkdir /var/www/mario/reportes_lluvia/%s"'%(date.strftime('%Y%m%d')))
+        query = "rsync -r %s %s/%s/"%(filepath+'_report.pdf',remote_path+date.strftime('%Y%m%d'),self.codigo)
+        os.system(query)
+        print(query)
     
     def rain_report_reportlab(self,filepath,date):
         avenir_book_path = '/media/nicolas/Home/Jupyter/MarioLoco/Tools/AvenirLTStd-Book.ttf'
@@ -1322,7 +1355,6 @@ class Nivel(SqlDb,wmf.SimuBasin):
         pdf = canvas.Canvas(filepath+'_report.pdf',pagesize=(900,1200))
         cx = 0
         cy = 900
-
         pdf.drawImage(filepath+'_rain.png',60,650,width=830,height=278)
         pdf.drawImage(filepath+'_level.png',20,270+20,width=860,height=280)
         pdf.drawImage('/media/nicolas/Home/Jupyter/MarioLoco/tools/pie.png',0,0,width=905,height=145.451)
@@ -1340,12 +1372,8 @@ class Nivel(SqlDb,wmf.SimuBasin):
         pdf.drawString(90+distance-10,520+300+100+40+20,'Lluvia acumulada en la cuenca')
         pdf.drawString(90+distance-10,520+300+10+100+20,'en la próxima media hora')
         pdf.drawString(90,270+280+10+20,'Profundidad de la lámina de agua e intensidad promedio en la cuenca')
-
         #pdf.setFont("AvenirBook", 15)
-
         pdf.drawImage('/media/nicolas/Home/Jupyter/MarioLoco/tools/leyenda.png',67,180,width=800,height=80)
-
-
         #N1
         pdf.setFillColor('#%02x%02x%02x' % (8,31,45))
         pdf.setFont("AvenirBook", 15)
@@ -1368,36 +1396,8 @@ class Nivel(SqlDb,wmf.SimuBasin):
         pdf.drawString(700,210+y,'Intensidad de lluvia')
         pdf.drawString(700,180+y,'Profundidad')
         pdf.drawString(700,160+y-5,'Profundidad actual')
-
-        #pdf.drawString(90+distance,520+300+10+100,'en la próxima media hora')
-
         pdf.showPage()
         pdf.save()
-        #os.system('scp %s mcano@siata.gov.co:/var/www/mario/rainReport/%d'%(ruteSave[:-3]+'pdf',self.codigo))
-        # LOG
-        return os.system('scp %s mcano@siata.gov.co:/var/www/mario/reportes_lluvia/'%(filepath+'_report.pdf'))
-
-    def rain_report(self,date):
-        date = pd.to_datetime(date)
-        start = date-datetime.timedelta(minutes=150)# 3 horas atras
-        end = date+datetime.timedelta(minutes=30) 
-        minutes = 180
-        #rain
-        vec = self.radar_rain(start,end,ext='.bin')
-        current_vect = vec.drop(vec.loc[date:].index).sum().values/1000
-        future_vect = vec.drop(vec.loc[:date].index).sum().values/1000
-        filepath = '/media/nicolas/Home/Jupyter/MarioLoco/rainReport/%s'%self.file_format(start=start,end=end)
-        self.plot_rain_future(current_vect,future_vect,filepath = filepath+'_rain')
-        # level
-        mean_rain = self.radar_rain(start,end)*12.0
-        #series = self.level_local(start,date)
-        series = self.level(start,date).resample('5min').mean()
-        series.index.name = ''
-        self.plot_level_report(series,mean_rain,self.risk_levels)
-        plt.gca().set_xlim(start,end)
-        plt.savefig(filepath+'_level.png',bbox_inches='tight')
-        self.rain_report_reportlab(filepath,date)
-        print('%s-%s minutes'%(self.codigo,(datetime.datetime.now()-date).seconds/60.0))
         
     def level_local_all(self,start,end):
         start,end = (start.strftime('%Y-%m-%d %H:%M'),end.strftime('%Y-%m-%d %H:%M'))
@@ -1425,7 +1425,6 @@ class Nivel(SqlDb,wmf.SimuBasin):
                 df[codigo] = np.NaN
         df = df[df.sum().sort_values(ascending=False).index].T
         return df
-    
     
     def make_risk_report(self,df,figsize=(6,14),bbox_to_anchor = (-0.15, 1.09),ruteSave = None,legend=True):
         import matplotlib.colors as mcolors
@@ -1466,7 +1465,6 @@ class Nivel(SqlDb,wmf.SimuBasin):
         alpha=1
         height = 8
 
-
     def round_time(self,date = datetime.datetime.now(),round_mins=5):
         mins = date.minute - (date.minute % round_mins)
         return datetime.datetime(date.year, date.month, date.day, date.hour, mins) + datetime.timedelta(minutes=round_mins)
@@ -1487,8 +1485,6 @@ class Nivel(SqlDb,wmf.SimuBasin):
             except:
                 pass
         return df
-
-
 
     def make_risk_report_current(self,df):
         # estaciones en riesgo
