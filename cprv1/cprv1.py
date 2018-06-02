@@ -293,7 +293,7 @@ class SqlDb:
         end = pd.to_datetime(end).strftime('%Y-%m-%d %H:%M:00')
         format = (field,self.codigo,self.fecha_hora_query(start,end))
         sql = SqlDb(codigo = self.codigo,**info.REMOTE)
-        df = sql.read_sql("SELECT fecha,hora,%s from datos WHERE cliente = '%s' and calidad = '1' and %s"%format)
+        df = sql.read_sql("SELECT fecha,hora,%s from datos WHERE cliente = '%s' and %s"%format)
         # converts centiseconds in 0
         try:
             df['hora'] = df['hora'].apply(lambda x:x[:-3]+':00')
