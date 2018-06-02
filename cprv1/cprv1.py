@@ -636,9 +636,13 @@ class Nivel(SqlDb,wmf.SimuBasin):
         '''
         s = self.sensor(start,end)
         if offset == 'new':
-            return self.info.offset - s
+            serie = self.info.offset - s
+            serie[serie>=self.info.offset_old] = np.NaN
         else:
-            return self.info.offset_old - s
+            serie = self.info.offset_old - s
+            serie[serie>=self.info.offset_old] = np.NaN
+        serie[serie<=0.0] = np.NaN
+        return serie
 
     def offset_remote(self):
         remote = SqlDb(**self.remote_server)
@@ -1305,10 +1309,9 @@ class Nivel(SqlDb,wmf.SimuBasin):
         ax.scatter(level.index[-1],level.loc[level.index[-1]],marker='v',color='k',s=20+scatterSize,zorder=41)
         
     def rain_report(self,date):
-        #def rain_report(self,date):
         date = pd.to_datetime(date)
         start = date-datetime.timedelta(minutes=150)# 3 horas atras
-        end = date+datetime.timedelta(minutes=30) 
+        end = date+datetime.timedelta(minutes=30)
         #filepaths
         local_path = '/media/nicolas/Home/Jupyter/MarioLoco/reportes_lluvia/'
         remote_path = 'mcano@siata.gov.co:/var/www/mario/reportes_lluvia/'
@@ -1325,17 +1328,26 @@ class Nivel(SqlDb,wmf.SimuBasin):
         # level
         mean_rain = self.radar_rain(start,end)*12.0
         series = self.level(start,date).resample('5min').mean()
+        series[series>self.info.offset] = np.NaN
         series.index.name = ''
-        #plots
-        self.plot_rain_future(current_vect,future_vect,filepath = filepath+'_rain')
-        self.plot_level_report(series,mean_rain,self.risk_levels)
-        plt.gca().set_xlim(start,end)
-        plt.savefig(filepath+'_level.png',bbox_inches='tight')
-        self.rain_report_reportlab(filepath,date)
-        os.system('ssh mcano@siata.gov.co "mkdir /var/www/mario/reportes_lluvia/%s"'%(date.strftime('%Y%m%d')))
-        query = "rsync -r %s %s/%s/"%(filepath+'_report.pdf',remote_path+date.strftime('%Y%m%d'),self.codigo)
-        os.system(query)
-        print(query)
+        level_cond = (series.dropna().size/series.size) < 0.05 # condición de nivel para graficar
+        rain_cond = len(current_vect)==0.0
+        if level_cond:
+            print 'Not enough level data'   
+        if rain_cond:
+            print 'Not rain in basin'
+        if level_cond or rain_cond:
+            pass
+        else:
+            #plots
+            self.plot_rain_future(current_vect,future_vect,filepath = filepath+'_rain')
+            self.plot_level_report(series,mean_rain,self.risk_levels)
+            plt.gca().set_xlim(start,end)
+            plt.savefig(filepath+'_level.png',bbox_inches='tight')
+            self.rain_report_reportlab(filepath,date)
+            os.system('ssh mcano@siata.gov.co "mkdir /var/www/mario/reportes_lluvia/%s"'%(date.strftime('%Y%m%d')))
+            query = "rsync -r %s %s/%s/"%(filepath+'_report.pdf',remote_path+date.strftime('%Y%m%d'),self.codigo)
+            os.system(query)
     
     def rain_report_reportlab(self,filepath,date):
         avenir_book_path = '/media/nicolas/Home/Jupyter/MarioLoco/Tools/AvenirLTStd-Book.ttf'
