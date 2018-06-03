@@ -1637,6 +1637,46 @@ class Nivel(SqlDb,wmf.SimuBasin):
                 plt.savefig(filepath,bbox_inches='tight')
             #os.system('scp %s mcano@siata.gov.co:/var/www/mario/realTime/reporte_lluvia_cuenca.png'%filepath)
         
+    def plot_risk_daily(self,df,bbox_to_anchor = (-0.15, 1.09),figsize=(6,14),ruteSave = None,legend=True,fontsize=20):
+        import matplotlib.colors as mcolors
+        def make_colormap(seq):
+            seq = [(None,) * 3, 0.0] + list(seq) + [1.0, (None,) * 3]
+            cdict = {'red': [], 'green': [], 'blue': []}
+            for i, item in enumerate(seq):
+                if isinstance(item, float):
+                    r1, g1, b1 = seq[i - 1]
+                    r2, g2, b2 = seq[i + 1]
+                    cdict['red'].append([item, r1, r2])
+                    cdict['green'].append([item, g1, g2])
+                    cdict['blue'].append([item, b1, b2])
+            return mcolors.LinearSegmentedColormap('CustomMap', cdict)
+        df = df.loc[df.index[::-1]]
+        c = mcolors.ColorConverter().to_rgb
+        cm = make_colormap([c('green'),0.20,c('#f2e71d'),0.4,c('orange'),0.60,c('red'),0.80,c('red')])
+        fig = plt.figure(figsize=figsize)
+        im = plt.imshow(df.values, interpolation='nearest', vmin=0, vmax=4, aspect='equal',cmap=cm);
+        #cbar = fig.colorbar(im)
+        ax = plt.gca();
+        ax.set_xticks(np.arange(0,df.columns.size, 1));
+        ax.set_yticks(np.arange(0, df.index.size, 1));
+        ax.set_xticklabels(df.columns,fontsize=fontsize);
+        ax.set_yticklabels(df.index,fontsize=fontsize,ha = 'left');
+        ax.set_xticks(np.arange(-.5, df.columns.size, 1), minor=True,);
+        ax.set_yticks(np.arange(-.5, df.index.size, 1), minor=True);
+        plt.draw()
+        yax = ax.get_yaxis()
+        pad = max(T.label.get_window_extent().width*1.05 for T in yax.majorTicks)
+        yax.set_tick_params(pad=pad)
+        ax.invert_yaxis()
+        ax.xaxis.tick_top()
+        ax.grid(which='minor', color='w', linestyle='-', linewidth=2)
+        #ax.text(-0.4,df.index.size+0.5,'NIVELES DE RIESGO\n %s - %s'%(start,pd.to_datetime(end).strftime('%Y-%m-%d')),fontsize=16)
+        alpha=1
+        height = 8
+        for tick in ax.get_xticklabels():
+            tick.set_rotation(90)
+        
+        
 class RedRio(Nivel):
     def __init__(self,**kwargs):
         Nivel.__init__(self,**kwargs)
@@ -2010,3 +2050,6 @@ class RedRio(Nivel):
             print 'no hourly data'
             pass
         writer.save()
+        
+        
+        
