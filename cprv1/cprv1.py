@@ -1792,6 +1792,103 @@ class Nivel(SqlDb,wmf.SimuBasin):
         query = "rsync -r %s %s/"%(folder_path+'/lluvia_diaria.png',remote_path+end.strftime('%Y%m%d'))
         os.system(query)
         
+    def gif(self,start,end,delay=0,loop=0):
+        start,end = pd.to_datetime(start),pd.to_datetime(end)
+        rain_vect = self.radar_rain_vect(start,end)
+        rain = self.radar_rain(start,end)*12.0
+        bat = self.last_bat(self.info.x_sensor)
+        nivel = self.level(start,end).resample('5min',how='mean')
+        rain_vect = rain_vect.reindex(nivel.index)
+        rain = rain.reindex(nivel.index)
+        # plot gif function before loop
+        filepath = '/media/nicolas/maso/Mario/user_output/gifs/%s/'%self.file_format(start,end)
+        os.system('mkdir %s'%filepath)
+        def plot_gif(count,fecha,f=1,filepath=filepath,**kwargs):
+            fontsize = 18
+            font = {'size'   :fontsize}
+            plt.rc('font', **font)
+            series = nivel.copy()
+            series[count:] = np.NaN
+            vect = rain_vect.copy()
+            vect = vect.drop(vect.index[count:])
+            s = rain.copy()
+            s[count:] = np.NaN
+            level = series.dropna().iloc[-1]/100.0
+            vec = vect.sum().values/1000.0
+            scatterSize = 70
+            figsize=(18,14)
+            series = pd.Series.copy(series/100.0)
+            risk_levels = np.array(self.risk_levels,float)/100.0
+            fig = plt.figure(figsize=figsize)
+            fig.subplots_adjust(wspace=0.3)
+            #gs = GridSpec(3, 3)
+            ax1 = fig.add_subplot(2,2,1)
+            # identical to ax1 = plt.subplot(gs.new_subplotspec((0,0), colspan=3))
+            ax2 = fig.add_subplot(2,2,2,sharey=ax1)
+            ylimit = kwargs.get('ylimit',max(risk_levels)*1.05)
+            series.plot(ax=ax1,label='',color='w',linewidth=0.001,fontsize=fontsize,**kwargs)
+            #ax1.fill_between(series.index,series.values,color=self.colores_siata[0])
+            ax1.fill_between(series.index, series.values,color=self.colores_siata[1],label='Open values')
+            #ax1.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M\n%d %b'))
+            alpha=0.2
+            ymax = max([bat['y'].max(),risk_levels[-1]])
+            ax1.set_xlim(series.index[0],series.index[-1]+datetime.timedelta(minutes=5))
+            sections =self.plot_section(bat,
+                                   ax = ax2,
+                                   level=level,
+                                   riskLevels=risk_levels,
+                                   xSensor=self.info.x_sensor,
+                                   scatterSize=scatterSize)
+            ax1.spines['top'].set_color('w')
+            ax1.spines['right'].set_color('w')
+            ax2.spines['top'].set_color('w')
+            ax2.spines['right'].set_color('w')
+            ax2.spines['right'].set_color('w')
+            ax1.set_ylabel('Profundidad [m]')
+            ax1.set_xlim(rain.index[0],rain.index[-1])
+            ax1.scatter(series.dropna().index[-1],level,marker='v',color='k',s=30+scatterSize,zorder=22)
+            ax1.scatter(series.dropna().index[-1],level,color='white',s=120+scatterSize+10,edgecolors='k')
+            ax3 = fig.add_subplot(2,2,3,sharex=ax1)
+            s.plot(ax=ax3,color='w',linewidth=0.001,fontsize=fontsize)
+            ax3.fill_between(s.index, s.values,color=self.colores_siata[3],label='O')
+            ax3.spines['top'].set_color('w')
+            ax3.spines['right'].set_color('w')
+            ax3.spines['right'].set_color('w')
+            ax4 = fig.add_subplot(2,2,4)
+            self.rain_area_metropol(vec,ax4,f=f)
+            ax2.set_ylim(0,ymax)
+            #cb = plt.colorbar(ax, cax = cbaxes)  
+            #cb.set_level('[mm]')
+            ax1.set_title(u'Profundidad de la lámina de agua')
+            ax2.set_title(u'Sección transversal del canal')
+            ax3.set_title(u'Lluvia promedio en la cuenca')
+            ax3.set_ylabel('Intensidad promedio [mm/h]',fontsize=fontsize)
+            ax4.set_title(u'Lluvia acumulada [mm]')
+            ax3.set_ylim(0,rain.max())
+            ax3.set_xlim(rain.index[0],rain.index[-1])
+            plt.suptitle(u'%s | %s'%(self.info.nombre,fecha))
+            path = '%s%.3d.png'%(filepath,count)
+            print path
+            plt.savefig(path,bbox_inches='tight')
+        # loop
+        for count in range(1,rain.index.size+1):
+                plot_gif(count,self.info.nombre,f=0.5)
+
+        file_name = self.file_format(start,end)+'-gif'
+        query = "convert -delay %s -loop %s %s*.png %s%s.gif"%(delay,loop,filepath,filepath,file_name)
+        r = os.system(query)
+        r=0
+        if r ==0:
+            print('gif saved in path: %s%s'%(filepath,file_name))
+        else:
+
+            print 'didnt work'
+        filepath = filepath+file_name
+        remote_path = 'mcano@siata.gov.co:/var/www/mario/gifs/'
+        os.system('ssh mcano@siata.gov.co "mkdir /var/www/mario/gifs/%s"'%(end.strftime('%Y%m%d')))
+        query = "rsync -r %s.gif %s/%s/"%(filepath,remote_path+end.strftime('%Y%m%d'),self.codigo)
+        return os.system(query)
+        
 class RedRio(Nivel):
     def __init__(self,**kwargs):
         Nivel.__init__(self,**kwargs)
