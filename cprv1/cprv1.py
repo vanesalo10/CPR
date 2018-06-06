@@ -1979,6 +1979,7 @@ class RedRio(Nivel):
         self.alturas['caudal'] = self.q_horaria.sum(axis=1).values
 
     def to_excel(self):
+	'''Genera archivo de excel'''
         from pandas import ExcelWriter
         excel_filepath = self.folder_path+'resultado.xlsx'
         writer =  ExcelWriter(excel_filepath)
