@@ -1960,6 +1960,7 @@ class RedRio(Nivel):
         self.levantamiento.index.name = 'vertical'
         
     def procesa_horarios(self):
+	'''Procesa caudales horarios a partir de la lamina de agua'''
         df_alturas = pd.DataFrame(index=self.alturas.index,columns=self.seccion.vertical)
         df_areas = df_alturas.copy()
         df_caudales = df_areas.copy()
