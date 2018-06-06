@@ -31,8 +31,12 @@ import matplotlib.dates as mdates
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate,Paragraph, Table, TableStyle
 from IPython.display import IFrame
-from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib.enums import TA_LEFT, TA_CENTER
+from reportlab.pdfbase import pdfmetrics
+from reportlab.pdfbase.ttfonts import TTFont
+from reportlab.pdfgen import canvas
+from reportlab.lib import colors
+from reportlab.lib.styles import ParagraphStyle, Table
+from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT, TA_JUSTIFY
 from reportlab.lib.units import inch
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
 from matplotlib.patches import Polygon
