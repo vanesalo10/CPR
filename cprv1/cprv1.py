@@ -297,7 +297,7 @@ class SqlDb:
         end = pd.to_datetime(end).strftime('%Y-%m-%d %H:%M:00')
         format = (field,self.codigo,self.fecha_hora_query(start,end))
         sql = SqlDb(codigo = self.codigo,**info.REMOTE)
-        df = sql.read_sql("SELECT fecha,hora,%s from datos WHERE cliente = '%s' and calidad = '1' and %s"%format)
+        df = sql.read_sql("SELECT fecha,hora,%s from datos WHERE cliente = '%s' and %s"%format)
         # converts centiseconds in 0
         try:
             df['hora'] = df['hora'].apply(lambda x:x[:-3]+':00')
@@ -640,9 +640,13 @@ class Nivel(SqlDb,wmf.SimuBasin):
         '''
         s = self.sensor(start,end)
         if offset == 'new':
-            return self.info.offset - s
+            serie = self.info.offset - s
+            serie[serie>=self.info.offset_old] = np.NaN
         else:
-            return self.info.offset_old - s
+            serie = self.info.offset_old - s
+            serie[serie>=self.info.offset_old] = np.NaN
+        serie[serie<=0.0] = np.NaN
+        return serie
 
     def offset_remote(self):
         remote = SqlDb(**self.remote_server)
@@ -1307,6 +1311,47 @@ class Nivel(SqlDb,wmf.SimuBasin):
         ax.scatter(level.index[-1],level.loc[level.index[-1]],color='grey',s=120+scatterSize+60,edgecolors='grey',zorder=39)
         ax.scatter(level.index[-1],level.loc[level.index[-1]],color='w',s=120+scatterSize+60,edgecolors='k',zorder=40)
         ax.scatter(level.index[-1],level.loc[level.index[-1]],marker='v',color='k',s=20+scatterSize,zorder=41)
+        
+    def rain_report(self,date):
+        date = pd.to_datetime(date)
+        start = date-datetime.timedelta(minutes=150)# 3 horas atras
+        end = date+datetime.timedelta(minutes=30)
+        #filepaths
+        local_path = '/media/nicolas/Home/Jupyter/MarioLoco/reportes_lluvia/'
+        remote_path = 'mcano@siata.gov.co:/var/www/mario/reportes_lluvia/'
+        day_path = local_path + date.strftime('%Y%m%d')+'/'
+        station_path = day_path+str(self.codigo)+'/'
+        filepath = station_path+self.file_format(start,end)
+        #make directories
+        os.system('mkdir %s'%day_path)
+        os.system('mkdir %s'%station_path)
+        #rain
+        vec = self.radar_rain(start,end,ext='.bin')
+        current_vect = vec.drop(vec.loc[date:].index).sum().values/1000
+        future_vect = vec.drop(vec.loc[:date].index).sum().values/1000
+        # level
+        mean_rain = self.radar_rain(start,end)*12.0
+        series = self.level(start,date).resample('5min').mean()
+        series[series>self.info.offset] = np.NaN
+        series.index.name = ''
+        level_cond = (series.dropna().size/series.size) < 0.05 # condición de nivel para graficar
+        rain_cond = len(current_vect)==0.0
+        if level_cond:
+            print 'Not enough level data'   
+        if rain_cond:
+            print 'Not rain in basin'
+        if level_cond or rain_cond:
+            pass
+        else:
+            #plots
+            self.plot_rain_future(current_vect,future_vect,filepath = filepath+'_rain')
+            self.plot_level_report(series,mean_rain,self.risk_levels)
+            plt.gca().set_xlim(start,end)
+            plt.savefig(filepath+'_level.png',bbox_inches='tight')
+            self.rain_report_reportlab(filepath,date)
+            os.system('ssh mcano@siata.gov.co "mkdir /var/www/mario/reportes_lluvia/%s"'%(date.strftime('%Y%m%d')))
+            query = "rsync -r %s %s/%s/"%(filepath+'_report.pdf',remote_path+date.strftime('%Y%m%d'),self.codigo)
+            os.system(query)
     
     def rain_report_reportlab(self,filepath,date):
         avenir_book_path = '/media/nicolas/Home/Jupyter/MarioLoco/Tools/AvenirLTStd-Book.ttf'
@@ -1326,7 +1371,6 @@ class Nivel(SqlDb,wmf.SimuBasin):
         pdf = canvas.Canvas(filepath+'_report.pdf',pagesize=(900,1200))
         cx = 0
         cy = 900
-
         pdf.drawImage(filepath+'_rain.png',60,650,width=830,height=278)
         pdf.drawImage(filepath+'_level.png',20,270+20,width=860,height=280)
         pdf.drawImage('/media/nicolas/Home/Jupyter/MarioLoco/tools/pie.png',0,0,width=905,height=145.451)
@@ -1344,12 +1388,8 @@ class Nivel(SqlDb,wmf.SimuBasin):
         pdf.drawString(90+distance-10,520+300+100+40+20,'Lluvia acumulada en la cuenca')
         pdf.drawString(90+distance-10,520+300+10+100+20,'en la próxima media hora')
         pdf.drawString(90,270+280+10+20,'Profundidad de la lámina de agua e intensidad promedio en la cuenca')
-
         #pdf.setFont("AvenirBook", 15)
-
         pdf.drawImage('/media/nicolas/Home/Jupyter/MarioLoco/tools/leyenda.png',67,180,width=800,height=80)
-
-
         #N1
         pdf.setFillColor('#%02x%02x%02x' % (8,31,45))
         pdf.setFont("AvenirBook", 15)
@@ -1372,36 +1412,8 @@ class Nivel(SqlDb,wmf.SimuBasin):
         pdf.drawString(700,210+y,'Intensidad de lluvia')
         pdf.drawString(700,180+y,'Profundidad')
         pdf.drawString(700,160+y-5,'Profundidad actual')
-
-        #pdf.drawString(90+distance,520+300+10+100,'en la próxima media hora')
-
         pdf.showPage()
         pdf.save()
-        #os.system('scp %s mcano@siata.gov.co:/var/www/mario/rainReport/%d'%(ruteSave[:-3]+'pdf',self.codigo))
-        # LOG
-        return os.system('scp %s mcano@siata.gov.co:/var/www/mario/reportes_lluvia/'%(filepath+'_report.pdf'))
-
-    def rain_report(self,date):
-        date = pd.to_datetime(date)
-        start = date-datetime.timedelta(minutes=150)# 3 horas atras
-        end = date+datetime.timedelta(minutes=30) 
-        minutes = 180
-        #rain
-        vec = self.radar_rain(start,end,ext='.bin')
-        current_vect = vec.drop(vec.loc[date:].index).sum().values/1000
-        future_vect = vec.drop(vec.loc[:date].index).sum().values/1000
-        filepath = '/media/nicolas/Home/Jupyter/MarioLoco/rainReport/%s'%self.file_format(start=start,end=end)
-        self.plot_rain_future(current_vect,future_vect,filepath = filepath+'_rain')
-        # level
-        mean_rain = self.radar_rain(start,end)*12.0
-        #series = self.level_local(start,date)
-        series = self.level(start,date).resample('5min').mean()
-        series.index.name = ''
-        self.plot_level_report(series,mean_rain,self.risk_levels)
-        plt.gca().set_xlim(start,end)
-        plt.savefig(filepath+'_level.png',bbox_inches='tight')
-        self.rain_report_reportlab(filepath,date)
-        print('%s-%s minutes'%(self.codigo,(datetime.datetime.now()-date).seconds/60.0))
         
     def level_local_all(self,start,end):
         start,end = (start.strftime('%Y-%m-%d %H:%M'),end.strftime('%Y-%m-%d %H:%M'))
@@ -1429,7 +1441,6 @@ class Nivel(SqlDb,wmf.SimuBasin):
                 df[codigo] = np.NaN
         df = df[df.sum().sort_values(ascending=False).index].T
         return df
-    
     
     def make_risk_report(self,df,figsize=(6,14),bbox_to_anchor = (-0.15, 1.09),ruteSave = None,legend=True):
         import matplotlib.colors as mcolors
@@ -1470,7 +1481,6 @@ class Nivel(SqlDb,wmf.SimuBasin):
         alpha=1
         height = 8
 
-
     def round_time(self,date = datetime.datetime.now(),round_mins=5):
         mins = date.minute - (date.minute % round_mins)
         return datetime.datetime(date.year, date.month, date.day, date.hour, mins) + datetime.timedelta(minutes=round_mins)
@@ -1491,8 +1501,6 @@ class Nivel(SqlDb,wmf.SimuBasin):
             except:
                 pass
         return df
-
-
 
     def make_risk_report_current(self,df):
         # estaciones en riesgo
@@ -1632,6 +1640,258 @@ class Nivel(SqlDb,wmf.SimuBasin):
             if filepath:
                 plt.savefig(filepath,bbox_inches='tight')
             #os.system('scp %s mcano@siata.gov.co:/var/www/mario/realTime/reporte_lluvia_cuenca.png'%filepath)
+        
+    def plot_risk_daily(self,df,bbox_to_anchor = (-0.15, 1.09),figsize=(6,14),ruteSave = None,legend=True,fontsize=20):
+        import matplotlib.colors as mcolors
+        def make_colormap(seq):
+            seq = [(None,) * 3, 0.0] + list(seq) + [1.0, (None,) * 3]
+            cdict = {'red': [], 'green': [], 'blue': []}
+            for i, item in enumerate(seq):
+                if isinstance(item, float):
+                    r1, g1, b1 = seq[i - 1]
+                    r2, g2, b2 = seq[i + 1]
+                    cdict['red'].append([item, r1, r2])
+                    cdict['green'].append([item, g1, g2])
+                    cdict['blue'].append([item, b1, b2])
+            return mcolors.LinearSegmentedColormap('CustomMap', cdict)
+        df = df.loc[df.index[::-1]]
+        c = mcolors.ColorConverter().to_rgb
+        cm = make_colormap([c('green'),0.20,c('#f2e71d'),0.4,c('orange'),0.60,c('red'),0.80,c('red')])
+        fig = plt.figure(figsize=figsize)
+        im = plt.imshow(df.values, interpolation='nearest', vmin=0, vmax=4, aspect='equal',cmap=cm);
+        #cbar = fig.colorbar(im)
+        ax = plt.gca();
+        ax.set_xticks(np.arange(0,df.columns.size, 1));
+        ax.set_yticks(np.arange(0, df.index.size, 1));
+        ax.set_xticklabels(df.columns,fontsize=fontsize);
+        ax.set_yticklabels(df.index,fontsize=fontsize,ha = 'left');
+        ax.set_xticks(np.arange(-.5, df.columns.size, 1), minor=True,);
+        ax.set_yticks(np.arange(-.5, df.index.size, 1), minor=True);
+        plt.draw()
+        yax = ax.get_yaxis()
+        pad = max(T.label.get_window_extent().width*1.05 for T in yax.majorTicks)
+        yax.set_tick_params(pad=pad)
+        ax.invert_yaxis()
+        ax.xaxis.tick_top()
+        ax.grid(which='minor', color='w', linestyle='-', linewidth=2)
+        #ax.text(-0.4,df.index.size+0.5,'NIVELES DE RIESGO\n %s - %s'%(start,pd.to_datetime(end).strftime('%Y-%m-%d')),fontsize=16)
+        alpha=1
+        height = 8
+        for tick in ax.get_xticklabels():
+            tick.set_rotation(90)
+
+    def reporte_diario(self,date):
+        end = pd.to_datetime(pd.to_datetime(date).strftime('%Y-%m-%d')+' 23:55') - datetime.timedelta(days=1)
+        start = (end-datetime.timedelta(days=6)).strftime('%Y-%m-%d 00:00')
+        folder_path = '/media/nicolas/Home/Jupyter/MarioLoco/reporte_diario/%s'%end.strftime('%Y%m%d')
+        os.system('mkdir %s'%folder_path)
+        df = self.level_all(start,end)
+        from matplotlib.patches import Rectangle
+        try:
+            df = df.T.drop([1013,1014,195,196]).T
+        except:
+            pass
+        daily = df.resample('D').max()
+        rdf = self.risk_df(daily)
+        # niveles de riesgo en el último día
+        last_day_risk = rdf[rdf.columns[-1]].copy()
+        last_day_risk = last_day_risk[last_day_risk>0.0].sort_values(ascending=False).index
+        rdf = rdf.loc[rdf.max(axis=1).sort_values(ascending=False).index]
+        rdf = rdf[rdf.max(axis=1)>0.0]
+        rdf = rdf.fillna(0)
+        labels = []
+        for codigo,nombre in zip(self.infost.loc[rdf.index].index,self.infost.loc[rdf.index,'nombre'].values):
+            labels.append('%s | %s'%(codigo,nombre))
+        rdf.index = labels
+        def to_col_format(date):
+            return (['L','M','MI','J','V','S','D'][int(date.strftime('%u'))-1]+date.strftime('%d'))
+        rdf.columns = map(lambda x:to_col_format(x),rdf.columns)
+        import sys
+        # sys.setdefaultencoding() does not exist, here!
+        reload(sys)  # Reload does the trick!
+        sys.setdefaultencoding('UTF8')
+        self.plot_risk_daily(rdf,figsize=(14,20))
+        plt.savefig(folder_path+'/reporte_nivel.png',bbox_inches='tight')
+        remote_path = 'mcano@siata.gov.co:/var/www/mario/reporte_diario/'
+        query = "rsync -r %s %s/"%(folder_path+'/reporte_nivel.png',remote_path+end.strftime('%Y%m%d'))
+        os.system(query)
+
+        #Graficas
+        fontsize = 25
+        font = {'size'   :fontsize}
+        plt.rc('font', **font)
+        filepath = None
+
+        for num,codigo in enumerate(np.array(last_day_risk,int)):
+            obj = Nivel(codigo=codigo,user='sample_user',passwd='s@mple_p@ss',SimuBasin=False)
+            series = df.loc[daily.index[-1].strftime('%Y-%m-%d'),codigo]
+            series = obj.level(series.index[0],series.index[-1])
+            if series.dropna().index.size==0.0:
+                pass
+            else:
+                plt.figure()
+                f, (ax1, ax2) = plt.subplots(1, 2, sharey=True,figsize=(25,4))
+                obj.plot_level(series/100.0,
+                                lamina='max',
+                                risk_levels=np.array(obj.risk_levels)/100.0,
+                                legend=False,
+                                resolution='m',
+                                ax=ax1,
+                                scatter_size=40)
+
+                alpha=0.2
+                bat = obj.last_bat(obj.info.x_sensor)
+                ymax = max([bat['y'].max(),(obj.risk_levels[-1])/100.0])
+                lamina = 'max'
+                    # plot section
+                if series.dropna().index.size == 0:
+                    lamina = 0.0
+                else:
+                    if lamina == 'current':
+                        x,lamina = (series.dropna().index[-1],series.dropna().iloc[-1])
+                    else:
+                        x,lamina = (series.argmax(),series.max())
+
+                sections =obj.plot_section(bat,
+                                        ax = ax2,
+                                        level=lamina/100.0,
+                                        riskLevels=np.array(obj.risk_levels)/100.0,
+                                        xSensor=obj.info.x_sensor,
+                                        scatterSize=50)
+                major_locator        = mdates.DayLocator(interval=5)
+                formater = '%H:%M'
+                ax1.xaxis.set_major_formatter(mdates.DateFormatter(formater))
+                ax1.set_xlabel(u'Fecha')
+                ax2.spines['top'].set_color('w')
+                ax2.spines['right'].set_color('w')
+                ax2.spines['right'].set_color('w')
+                ax2.set_ylim(bat['y'].min(),ymax)
+                ax1.set_ylim(bat['y'].min(),ymax)
+                ax1.set_title(u'código: %s'%codigo)
+                ax2.set_title('Profundidad en el canal')
+                ax2.set_ylabel('Profundidad [m]')
+                #ax1.set_xlabel('03 Mayo - 04 Mayo')
+                ax1.annotate(u'máximo', (mdates.date2num(series.argmax()), series.max()/100.0), xytext=(10, 10),textcoords='offset points',fontsize=fontsize)
+                #file = 'section_%s.png'%(num+1)
+                ax2.set_title(obj.info.nombre)
+                #filepath = 'reportes_amva/%s.png'%codigo
+                for tick in ax1.get_xticklabels():
+                    tick.set_rotation(45)
+                filepath = folder_path+'/'+obj.info.slug+'.png'
+                plt.savefig(filepath,bbox_inches='tight')
+                os.system('rsync %s %s'%(filepath,remote_path+end.strftime('%Y%m%d')+'/'))
+
+        obj = Nivel(codigo=260,user='sample_user',passwd='s@mple_p@ss',SimuBasin=True)
+        radar_rain = obj.radar_rain_vect(start,end)
+        diario = radar_rain.resample('D').sum()
+        rain = obj.radar_rain(start,end)
+        fig = plt.figure(figsize=(20,20))
+        for pos,dia in enumerate(diario.index):
+            ax = fig.add_subplot(3,3,pos+1)
+            obj.rain_area_metropol(diario.loc[dia].values/1000.0,ax)
+            ax.set
+            plt.gca().set_title(rdf.columns[pos])
+        plt.savefig(folder_path+'/lluvia_diaria.png',bbox_inches='tight')
+        remote_path = 'mcano@siata.gov.co:/var/www/mario/reporte_diario/'
+        query = "rsync -r %s %s/"%(folder_path+'/lluvia_diaria.png',remote_path+end.strftime('%Y%m%d'))
+        os.system(query)
+        
+    def gif(self,start,end,delay=0,loop=0):
+        start,end = pd.to_datetime(start),pd.to_datetime(end)
+        rain_vect = self.radar_rain_vect(start,end)
+        rain = self.radar_rain(start,end)*12.0
+        bat = self.last_bat(self.info.x_sensor)
+        nivel = self.level(start,end).resample('5min',how='mean')
+        rain_vect = rain_vect.reindex(nivel.index)
+        rain = rain.reindex(nivel.index)
+        # plot gif function before loop
+        filepath = '/media/nicolas/maso/Mario/user_output/gifs/%s/'%self.file_format(start,end)
+        os.system('mkdir %s'%filepath)
+        def plot_gif(count,fecha,f=1,filepath=filepath,**kwargs):
+            fontsize = 18
+            font = {'size'   :fontsize}
+            plt.rc('font', **font)
+            series = nivel.copy()
+            series[count:] = np.NaN
+            vect = rain_vect.copy()
+            vect = vect.drop(vect.index[count:])
+            s = rain.copy()
+            s[count:] = np.NaN
+            level = series.dropna().iloc[-1]/100.0
+            vec = vect.sum().values/1000.0
+            scatterSize = 70
+            figsize=(18,14)
+            series = pd.Series.copy(series/100.0)
+            risk_levels = np.array(self.risk_levels,float)/100.0
+            fig = plt.figure(figsize=figsize)
+            fig.subplots_adjust(wspace=0.3)
+            #gs = GridSpec(3, 3)
+            ax1 = fig.add_subplot(2,2,1)
+            # identical to ax1 = plt.subplot(gs.new_subplotspec((0,0), colspan=3))
+            ax2 = fig.add_subplot(2,2,2,sharey=ax1)
+            ylimit = kwargs.get('ylimit',max(risk_levels)*1.05)
+            series.plot(ax=ax1,label='',color='w',linewidth=0.001,fontsize=fontsize,**kwargs)
+            #ax1.fill_between(series.index,series.values,color=self.colores_siata[0])
+            ax1.fill_between(series.index, series.values,color=self.colores_siata[1],label='Open values')
+            #ax1.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M\n%d %b'))
+            alpha=0.2
+            ymax = max([bat['y'].max(),risk_levels[-1]])
+            ax1.set_xlim(series.index[0],series.index[-1]+datetime.timedelta(minutes=5))
+            sections =self.plot_section(bat,
+                                   ax = ax2,
+                                   level=level,
+                                   riskLevels=risk_levels,
+                                   xSensor=self.info.x_sensor,
+                                   scatterSize=scatterSize)
+            ax1.spines['top'].set_color('w')
+            ax1.spines['right'].set_color('w')
+            ax2.spines['top'].set_color('w')
+            ax2.spines['right'].set_color('w')
+            ax2.spines['right'].set_color('w')
+            ax1.set_ylabel('Profundidad [m]')
+            ax1.set_xlim(rain.index[0],rain.index[-1])
+            ax1.scatter(series.dropna().index[-1],level,marker='v',color='k',s=30+scatterSize,zorder=22)
+            ax1.scatter(series.dropna().index[-1],level,color='white',s=120+scatterSize+10,edgecolors='k')
+            ax3 = fig.add_subplot(2,2,3,sharex=ax1)
+            s.plot(ax=ax3,color='w',linewidth=0.001,fontsize=fontsize)
+            ax3.fill_between(s.index, s.values,color=self.colores_siata[3],label='O')
+            ax3.spines['top'].set_color('w')
+            ax3.spines['right'].set_color('w')
+            ax3.spines['right'].set_color('w')
+            ax4 = fig.add_subplot(2,2,4)
+            self.rain_area_metropol(vec,ax4,f=f)
+            ax2.set_ylim(0,ymax)
+            #cb = plt.colorbar(ax, cax = cbaxes)  
+            #cb.set_level('[mm]')
+            ax1.set_title(u'Profundidad de la lámina de agua')
+            ax2.set_title(u'Sección transversal del canal')
+            ax3.set_title(u'Lluvia promedio en la cuenca')
+            ax3.set_ylabel('Intensidad promedio [mm/h]',fontsize=fontsize)
+            ax4.set_title(u'Lluvia acumulada [mm]')
+            ax3.set_ylim(0,rain.max())
+            ax3.set_xlim(rain.index[0],rain.index[-1])
+            plt.suptitle(u'%s | %s'%(self.info.nombre,fecha))
+            path = '%s%.3d.png'%(filepath,count)
+            print path
+            plt.savefig(path,bbox_inches='tight')
+        # loop
+        for count in range(1,rain.index.size+1):
+                plot_gif(count,self.info.nombre,f=0.5)
+
+        file_name = self.file_format(start,end)+'-gif'
+        query = "convert -delay %s -loop %s %s*.png %s%s.gif"%(delay,loop,filepath,filepath,file_name)
+        r = os.system(query)
+        r=0
+        if r ==0:
+            print('gif saved in path: %s%s'%(filepath,file_name))
+        else:
+
+            print 'didnt work'
+        filepath = filepath+file_name
+        remote_path = 'mcano@siata.gov.co:/var/www/mario/gifs/'
+        os.system('ssh mcano@siata.gov.co "mkdir /var/www/mario/gifs/%s"'%(end.strftime('%Y%m%d')))
+        query = "rsync -r %s.gif %s/%s/"%(filepath,remote_path+end.strftime('%Y%m%d'),self.codigo)
+        return os.system(query)
         
 class RedRio(Nivel):
     def __init__(self,**kwargs):
@@ -2008,3 +2268,9 @@ class RedRio(Nivel):
             print 'no hourly data'
             pass
         writer.save()
+<<<<<<< HEAD
+=======
+        
+        
+        
+>>>>>>> ba62a0a1e76d496010e3dead66a79ee3144f5def

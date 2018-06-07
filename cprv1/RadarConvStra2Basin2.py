@@ -69,9 +69,6 @@ for d in datesDias:
 ListDays.sort()
 ListRutas.sort()
 
-print ('LIST DAYS ARE %s'%ListDays)
-
-
 datesDias = []
 for d in ListDays:
     try:
