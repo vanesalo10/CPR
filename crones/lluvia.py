@@ -12,7 +12,7 @@ import os
 
 self = cpr.Nivel(codigo=140,user='sample_user',passwd='s@mple_p@ss',SimuBasin=True)
 end = self.round_time(datetime.datetime.now())
-start = self.round_time(end - datetime.timedelta(days=15))
+start = self.round_time(end - datetime.timedelta(days=1))
 df = self.level_all(start,end)
 df = df.resample('5min').mean()
 dfr = self.risk_df(df)
