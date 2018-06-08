@@ -1910,7 +1910,7 @@ class RedRio(Nivel):
         
     @property
     def info_redrio(self):
-        return pd.read_csv('redrio/info_redrio.csv',index_col=0)
+        return pd.read_csv('/media/nicolas/Home/Jupyter/MarioLoco/redrio/info_redrio.csv',index_col=0)
     
     @property
     def caudales(self):
