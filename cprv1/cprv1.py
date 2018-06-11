@@ -2278,7 +2278,6 @@ def pixelconverter(self,filepath,width = False,height=False):
         return height*factor
 
 def redrioreport(self,nombre_archivo,nombreEstacion,texto1,texto2,seccion,alturas,lluvia,histograma,resultados,fecha=None,numero_aforos=0,foot=None,head=None,estadisticas=False,heights=True,page2=True,table=True,one_page=False,**kwargs):
-
     '''
     Generates the reportlab reports of each station included in the attachtments.
     Parameters
