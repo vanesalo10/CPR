@@ -2265,3 +2265,259 @@ class RedRio(Nivel):
         
         
         
+def get_num_pixels(self,filepath):
+    width, height = Image.open(open(filepath)).size
+    return width,height
+
+def pixelconverter(self,filepath,width = False,height=False):
+    w,h = get_num_pixels(filepath)
+    factor = float(w)/h
+    if width<>False:
+        return width/factor 
+    else:
+        return height*factor
+
+def redrioreport(self,nombre_archivo,nombreEstacion,texto1,texto2,seccion,alturas,lluvia,histograma,resultados,fecha=None,numero_aforos=0,foot=None,head=None,estadisticas=False,heights=True,page2=True,table=True,one_page=False,**kwargs):
+
+    '''
+    Generates the reportlab reports of each station included in the attachtments.
+    Parameters
+    ----------
+    nombre_archivo   = path where the pdf report will be generated.
+    nombreEstacion   = station name that is going to be used as title of he report.
+    texto1           = path to the plain tex file containing the first paragraph of the report which correspond to the descripiton of the registered levels trought the day and the station tranversal section.
+    texto2           = path to the plain tex file containing the second paragraph of the report which correspond to the descripiton of the radar antecedent and current rainfall for the campaign date.
+    seccion          = path to the png or jpeg file containing a representation of the tranversal section measured.
+    alturas          = path to the png or jpeg file containing the hourly level of water registered during the campaign. 
+    lluvia           = path to the png or jpeg file containing the radar rainfall plots to be analyzed.
+    histograma       = path to the png or jpeg file containing the stattistics for the historic gauging campaigns.
+    resultados       = path to the excel file containing the gauging campaign data and results for the station.
+    fecha (optional) = the gauging campaign date can be set manuall or contained in the results file.
+    numero_aforos    = number of gauging campaigns carried out.
+    foot (ptional)   = path to the png or jpeg file containing the page foot of the report (Logos)
+    head (ptional)   = path to the png or jpeg file containing the page header of the report
+    estadisticas(opt) 
+    heights          = set False to not display the hourly registered levels in the first figure of this report.
+    page2            = set False to not display the second page of this report.
+    table            = set False to not display the results table.
+    one_page         = set True to only display the level and section figure (and its description) and the rainfall figure. 
+    '''
+    from reportlab.lib.pagesizes import letter
+    from reportlab.platypus import SimpleDocTemplate,Paragraph, Table, TableStyle
+    from IPython.display import IFrame
+    from reportlab.pdfbase import pdfmetrics
+    from reportlab.pdfbase.ttfonts import TTFont
+    from reportlab.pdfgen import canvas
+    from reportlab.lib import colors
+    from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
+    from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT, TA_JUSTIFY
+    from reportlab.lib.units import inch
+    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table
+    import sys
+    reload(sys)  # Reload does the trick!
+    sys.setdefaultencoding('UTF8')
+        
+    
+    barcode_font = r"/media/nicolas/Home/Jupyter/MarioLoco/Tools/AvenirLTStd-Book.ttf"
+    pdfmetrics.registerFont(TTFont("AvenirBook", barcode_font))
+    barcode_font = r"/media/nicolas/Home/Jupyter/MarioLoco/tools/avenir-next-bold.ttf"
+    pdfmetrics.registerFont(TTFont("AvenirBookBold", barcode_font))
+    
+    head='/media/nicolas/Home/Jupyter/MarioLoco/tools/head.png' if head==None else head
+    foot='/media/nicolas/Home/Jupyter/MarioLoco/tools/foot.png' if foot==None else foot
+    
+    print head
+    print foot
+    
+    texto1=open(texto1).read().decode('utf8')
+    texto2=open(texto2).read().decode('utf8')
+    
+    resultados=pd.read_excel(resultados).set_index('fecha')
+    fecha=resultados.keys()[0]
+    
+    try:
+        dispositivo=resultados.loc['dispositivo'].values[0]
+    except:
+        dispositivo='OTT MF-PRO'
+
+    
+    
+    
+    textf1 = kwargs.get('textf1','Figura 1. a) Dibujo de la sección transversal del canal. b) Caudales horarios obtenidos a partir de profundidades de la lámina de agua.')
+    textf2 = 'Tabla 1. Resumen, muestra el dispositivo con el que se realizó el aforo y los parámetros hidráulicos estimados más relevantes.'
+    textf3 = 'Figura 2. a) Distribución temporal de la lluvia en la cuenca. La sombra azul invertida representa la intensidad promedio en mm/h. b) Distribución espacial de la lluvia acumulada en la cuenca en mm en un periodo de 36 horas.'
+    text_color = '#%02x%02x%02x' % (8,31,45)
+    widthPage =  816
+    heightPage = 1056
+    pdf = canvas.Canvas(nombre_archivo,pagesize=(widthPage,heightPage))
+    cx = 0
+    cy = 900
+    #pdf.drawImage(ruteSave,20,250,width=860,height=650)
+    pdf.drawImage(foot,816/2-(100/(209/906.))/2,10,width=(100/(209/906.)),height=100)
+    pdf.drawImage(head,0,1056-129,width=816,height=129)
+    text_color = '#%02x%02x%02x' % (8,31,45)
+    styles=getSampleStyleSheet()
+    styles.add(ParagraphStyle(name='Texts',\
+                              alignment=TA_CENTER,\
+                              fontName = "AvenirBook",\
+                              fontSize = 20,\
+                              textColor = text_color,\
+                              leading = 20))
+
+    styles.add(ParagraphStyle(name='Justify',\
+                              alignment=TA_JUSTIFY,\
+                              fontName = "AvenirBook",\
+                              fontSize = 14,\
+                              textColor = text_color,\
+                              leading = 20))
+    
+    styles.add(ParagraphStyle(name='JustifyBold',\
+                          alignment=TA_JUSTIFY,\
+                          fontName = "AvenirBookBold",\
+                          fontSize = 13,\
+                          textColor = text_color,\
+                          leading = 20))
+    #flagheigths
+    if heights == False:
+        height = 180
+        width = pixelConverter(seccion,height=height)
+        xloc = widthPage/2.0 - (width/2.0)
+        pdf.drawImage(seccion,xloc,550,width = width,height = height)
+        p = Paragraph('Figura 1. Dibujo de la sección transversal del canal', styles["JustifyBold"])
+        p.wrapOn(pdf, 716, 200)
+        p.drawOn(pdf,270,490)
+        
+    else:
+        pdf.drawImage(seccion,50,550,width=310,height=211)
+        pdf.setFont("AvenirBook", 14)
+        pdf.drawString(220,770,"a)")
+        pdf.drawString(600,770,"b)")
+        pdf.drawImage(alturas,50+310,550,width=426-13,height=211)
+
+            
+        p = Paragraph(textf1, styles["JustifyBold"])
+        p.wrapOn(pdf, 716, 200)
+        p.drawOn(pdf,50,480)
+
+    if len(texto1)<500:
+        p = Paragraph(texto1, styles["Justify"])
+        p.wrapOn(pdf, 720, 200)
+        p.drawOn(pdf,50,850)
+    
+    else:
+        p = Paragraph(texto1, styles["Justify"])
+        p.wrapOn(pdf, 720, 200)
+        p.drawOn(pdf,50,810)
+
+    
+    
+    pdf.setFillColor(text_color)
+    pdf.setFont("AvenirBook", 20)
+    print nombreEstacion
+    
+    p = Paragraph(u'%s - %s'%(nombreEstacion.encode('utf8'),fecha), styles["Texts"])
+    p.wrapOn(pdf, 816, 200)
+    p.drawOn(pdf,0,945)
+
+    data= [['Caudal total [m^3/s] ', round(float(resultados.loc['caudal_medio'].values[0]),2), 'Dispositivo', dispositivo],
+           [u'Área mojada [m^2]',round(float(resultados.loc['area_total'].values[0]),2), 'Ancho superficial [m]',round(float(resultados.loc['ancho_superficial'].values[0]),2)],
+           ['Profundidad media [m]', round(float(resultados.loc['altura_media'].values[0]),2), 'Velocidad promedio [m/s]',round(float(resultados.loc['velocidad_media'].values[0]),2)],
+           [u'Perímetro mojado [m]', round(float(resultados.loc['perimetro'].values[0]),2), 'Radio hidráulico [m]', round(float(resultados.loc['radio_hidraulico'].values[0]),2)],]
+    
+    if table==True:
+        t=Table(data,colWidths = [210,110,210,110],rowHeights=[30,30,30,30],style=[('GRID',(0,0),(-1,-1),1,text_color),
+                            ('ALIGN',(0,0),(0,-1),'LEFT'),
+                            ('BACKGROUND',(0,0),(0,-1),colors.white),
+                            ('ALIGN',(3,2),(3,2),'LEFT'),
+                            ('BOX',(0,0),(-1,-1),1,colors.black),
+                            ('TEXTFONT', (0, 0), (-1, 1), 'AvenirBook'),
+                            ('TEXTCOLOR',(0,0),(-1,-1),text_color),
+                            ('FONTSIZE',(0,0),(-1,-1),14),
+                            ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
+                            ('ALIGN',(1,0),(1,-1),'CENTER'),
+                            ('ALIGN',(3,0),(3,-1),'CENTER')
+        ])
+
+        t.wrapOn(pdf, 650, 200)
+        t.drawOn(pdf,100,310)
+
+
+        p = Paragraph(textf2, styles["JustifyBold"])
+        p.wrapOn(pdf, 716, 200)
+        p.drawOn(pdf,50,240)
+
+    pdf.setFont("AvenirBookBold", 14)
+    pdf.setFillColor('#%02x%02x%02x' % (8,31,45))
+    pdf.setFont("AvenirBook", 15)
+    pdf.setFillColor('#%02x%02x%02x' % (8,31,45))
+
+    
+    if one_page==True:
+        page2=False
+        height = 225
+        width = pixelConverter(lluvia,height=height)
+        xloc = widthPage/2.0 - (width/2.0)
+        pdf.drawImage(lluvia,xloc,230,width = width,height = height)
+        pdf.drawImage('/media/nicolas/Home/Jupyter/MarioLoco/tools/acumuladoLegend.jpg',642,255,width=43.64,height=200)
+        p = Paragraph(textf3, styles["JustifyBold"])
+        p.wrapOn(pdf, 716, 200)
+        p.drawOn(pdf,50,130)
+
+    pdf.showPage()
+        
+    #PÁGINA 2 
+    
+    if page2==True:
+        pdf.drawImage(foot,816/2-(100/(209/906.))/2,10,width=(100/(209/906.)),height=100)
+        pdf.drawImage(head,0,1056-129,width=816,height=129)
+        height = 225
+        width = pixelConverter(lluvia,height=height)
+        xloc = widthPage/2.0 - (width/2.0)
+        pdf.drawImage(lluvia,xloc,540,width = width,height = height)
+
+        p = Paragraph(texto2, styles["Justify"])
+        p.wrapOn(pdf, 720, 200)
+        p.drawOn(pdf,50,790)
+        textf4 = 'Figura 3. a) Distribuciones de frecuencia, número de aforos: %s, la línea punteada vertical es el caudal observado, la curva es una distribución de frecuencia acumulada que presenta el régimen de caudales. b) Resumen de estadísticos. Max = Caudal máximo, Min = Caudal mínimo, page25 = Percentil 25, P50 = Mediana, P75 = Percentil 75, Media = Caudal promedio, Std = desviación estándar, Obs = Caudal observado.'%(numero_aforos)
+        p = Paragraph(textf3, styles["JustifyBold"])
+        p.wrapOn(pdf, 716, 200)
+        p.drawOn(pdf,50,480)
+
+        # distribuciones
+        if numero_aforos>0:
+            if estadisticas == False:
+                height = 230
+                width = pixelConverter(histograma,height=height)
+                xloc = widthPage/2.0 - (width/2.0)
+                pdf.drawImage(histograma,xloc,220,width = width,height = height)
+                p = Paragraph(textf4, styles["JustifyBold"])
+                p.wrapOn(pdf, 716, 200)
+                p.drawOn(pdf,50,125)
+                pdf.setFont("AvenirBook", 14)
+                pdf.drawString(205,460,"a)")
+                pdf.drawString(590,460,"b)")
+
+            else:
+                textf4 = estadisticas
+                pdf.drawImage(histograma,155,180,width=500,height=250)
+                p = Paragraph(textf4, styles["JustifyBold"])
+                p.wrapOn(pdf, 716, 200)
+                p.drawOn(pdf,120,145)
+
+            p = Paragraph(u'Estación %s - %s'%(nombreEstacion.encode('utf8'),fecha), styles["Texts"])
+            p.wrapOn(pdf, 816, 200)
+            p.drawOn(pdf,0,945)
+            pdf.drawImage('/media/nicolas/Home/Jupyter/MarioLoco/tools/acumuladoLegend.jpg',642,570,width=43.64,height=200)
+            pdf.drawImage('/media/nicolas/Home/Jupyter/MarioLoco/tools/arrow.png',595,575,width=20,height=20)
+            pdf.drawString(600,596,"N")
+            pdf.setFont("AvenirBook", 14)
+            pdf.setFillColor('#%02x%02x%02x' % (8,31,45))
+            pdf.drawString(205,770,"a)")
+            pdf.drawString(590,770,"b)")
+            x = 460
+        else:
+            1
+    else:
+        1
+
+    pdf.save()
