@@ -2408,7 +2408,60 @@ class RedRio(Nivel):
             p.wrapOn(pdf, 720, 200)
             p.drawOn(pdf,50,810)
 
-<<<<<<< HEAD
+
+        pdf.setFillColor(text_color)
+        pdf.setFont("AvenirBook", 20)
+        print nombreEstacion
+
+        p = Paragraph(u'%s - %s'%(nombreEstacion.encode('utf8'),fecha), styles["Texts"])
+        p.wrapOn(pdf, 816, 200)
+        p.drawOn(pdf,0,945)
+
+        data= [['Caudal total [m^3/s] ', round(float(resultados.loc['caudal_medio'].values[0]),2), 'Dispositivo', dispositivo],
+               [u'Área mojada [m^2]',round(float(resultados.loc['area_total'].values[0]),2), 'Ancho superficial [m]',round(float(resultados.loc['ancho_superficial'].values[0]),2)],
+               ['Profundidad media [m]', round(float(resultados.loc['altura_media'].values[0]),2), 'Velocidad promedio [m/s]',round(float(resultados.loc['velocidad_media'].values[0]),2)],
+               [u'Perímetro mojado [m]', round(float(resultados.loc['perimetro'].values[0]),2), 'Radio hidráulico [m]', round(float(resultados.loc['radio_hidraulico'].values[0]),2)],]
+
+        if table==True:
+            t=Table(data,colWidths = [210,110,210,110],rowHeights=[30,30,30,30],style=[('GRID',(0,0),(-1,-1),1,text_color),
+                                ('ALIGN',(0,0),(0,-1),'LEFT'),
+                                ('BACKGROUND',(0,0),(0,-1),colors.white),
+                                ('ALIGN',(3,2),(3,2),'LEFT'),
+                                ('BOX',(0,0),(-1,-1),1,colors.black),
+                                ('TEXTFONT', (0, 0), (-1, 1), 'AvenirBook'),
+                                ('TEXTCOLOR',(0,0),(-1,-1),text_color),
+                                ('FONTSIZE',(0,0),(-1,-1),14),
+                                ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
+                                ('ALIGN',(1,0),(1,-1),'CENTER'),
+                                ('ALIGN',(3,0),(3,-1),'CENTER')
+            ])
+
+            t.wrapOn(pdf, 650, 200)
+            t.drawOn(pdf,100,310)
+
+
+            p = Paragraph(textf2, styles["JustifyBold"])
+            p.wrapOn(pdf, 716, 200)
+            p.drawOn(pdf,50,240)
+
+        pdf.setFont("AvenirBookBold", 14)
+        pdf.setFillColor('#%02x%02x%02x' % (8,31,45))
+        pdf.setFont("AvenirBook", 15)
+        pdf.setFillColor('#%02x%02x%02x' % (8,31,45))
+
+
+        if one_page==True:
+            page2=False
+            height = 225
+            width = pixelConverter(lluvia,height=height)
+            xloc = widthPage/2.0 - (width/2.0)
+            pdf.drawImage(lluvia,xloc,230,width = width,height = height)
+            pdf.drawImage('/media/nicolas/Home/Jupyter/MarioLoco/tools/acumuladoLegend.jpg',642,255,width=43.64,height=200)
+            p = Paragraph(textf3, styles["JustifyBold"])
+            p.wrapOn(pdf, 716, 200)
+            p.drawOn(pdf,50,130)
+
+        pdf.showPage()
 
 
         pdf.setFillColor(text_color)
@@ -2465,64 +2518,6 @@ class RedRio(Nivel):
 
         pdf.showPage()
 
-=======
-
-
-        pdf.setFillColor(text_color)
-        pdf.setFont("AvenirBook", 20)
-        print nombreEstacion
-
-        p = Paragraph(u'%s - %s'%(nombreEstacion.encode('utf8'),fecha), styles["Texts"])
-        p.wrapOn(pdf, 816, 200)
-        p.drawOn(pdf,0,945)
-
-        data= [['Caudal total [m^3/s] ', round(float(resultados.loc['caudal_medio'].values[0]),2), 'Dispositivo', dispositivo],
-               [u'Área mojada [m^2]',round(float(resultados.loc['area_total'].values[0]),2), 'Ancho superficial [m]',round(float(resultados.loc['ancho_superficial'].values[0]),2)],
-               ['Profundidad media [m]', round(float(resultados.loc['altura_media'].values[0]),2), 'Velocidad promedio [m/s]',round(float(resultados.loc['velocidad_media'].values[0]),2)],
-               [u'Perímetro mojado [m]', round(float(resultados.loc['perimetro'].values[0]),2), 'Radio hidráulico [m]', round(float(resultados.loc['radio_hidraulico'].values[0]),2)],]
-
-        if table==True:
-            t=Table(data,colWidths = [210,110,210,110],rowHeights=[30,30,30,30],style=[('GRID',(0,0),(-1,-1),1,text_color),
-                                ('ALIGN',(0,0),(0,-1),'LEFT'),
-                                ('BACKGROUND',(0,0),(0,-1),colors.white),
-                                ('ALIGN',(3,2),(3,2),'LEFT'),
-                                ('BOX',(0,0),(-1,-1),1,colors.black),
-                                ('TEXTFONT', (0, 0), (-1, 1), 'AvenirBook'),
-                                ('TEXTCOLOR',(0,0),(-1,-1),text_color),
-                                ('FONTSIZE',(0,0),(-1,-1),14),
-                                ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
-                                ('ALIGN',(1,0),(1,-1),'CENTER'),
-                                ('ALIGN',(3,0),(3,-1),'CENTER')
-            ])
-
-            t.wrapOn(pdf, 650, 200)
-            t.drawOn(pdf,100,310)
-
-
-            p = Paragraph(textf2, styles["JustifyBold"])
-            p.wrapOn(pdf, 716, 200)
-            p.drawOn(pdf,50,240)
-
-        pdf.setFont("AvenirBookBold", 14)
-        pdf.setFillColor('#%02x%02x%02x' % (8,31,45))
-        pdf.setFont("AvenirBook", 15)
-        pdf.setFillColor('#%02x%02x%02x' % (8,31,45))
-
-
-        if one_page==True:
-            page2=False
-            height = 225
-            width = pixelConverter(lluvia,height=height)
-            xloc = widthPage/2.0 - (width/2.0)
-            pdf.drawImage(lluvia,xloc,230,width = width,height = height)
-            pdf.drawImage('/media/nicolas/Home/Jupyter/MarioLoco/tools/acumuladoLegend.jpg',642,255,width=43.64,height=200)
-            p = Paragraph(textf3, styles["JustifyBold"])
-            p.wrapOn(pdf, 716, 200)
-            p.drawOn(pdf,50,130)
-
-        pdf.showPage()
-
->>>>>>> master
         #PÁGINA 2 
 
         if page2==True:
@@ -2578,9 +2573,5 @@ class RedRio(Nivel):
         else:
             1
 
-<<<<<<< HEAD
         pdf.save()
-        
-=======
-        pdf.save()
->>>>>>> master
+
