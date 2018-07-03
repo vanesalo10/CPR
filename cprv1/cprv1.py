@@ -2245,14 +2245,18 @@ class RedRio(Nivel):
         excel_filepath = self.folder_path+'resultado.xlsx'
         writer =  ExcelWriter(excel_filepath)
         informacion = self.aforo.append(self.info_redrio.loc[self.codigo].iloc[:-1].drop('FolderName')).copy()
-        informacion.to_excel(writer,'informacion',header=False)
+        try:
+            informacion['Subcuenca'] = unicode(informacion['Subcuenca'],errors='ignore')
+        except:
+            pass
+        informacion.to_excel(writer,'informacion',header=False, encoding='utf8')
         workbook  = writer.book
         worksheet = writer.sheets['informacion']
         worksheet.set_column('A:B', 20)
-        self.seccion.set_index('vertical').to_excel(writer,'seccion')
-        self.levantamiento.to_excel(writer,'levantamiento')
+        self.seccion.set_index('vertical').to_excel(writer,'seccion', encoding='utf8')
+        self.levantamiento.to_excel(writer,'levantamiento', encoding='utf8')
         self.alturas.index.name = 'Hora'
-        self.alturas.fillna('').to_excel(writer,'caudales_horarios')
+        self.alturas.fillna('').to_excel(writer,'caudales_horarios', encoding='utf8')
         workbook  = writer.book
         worksheet = writer.sheets['caudales_horarios']
         worksheet.set_column('B:B', 15)
@@ -2399,16 +2403,35 @@ class RedRio(Nivel):
             p.wrapOn(pdf, 716, 200)
             p.drawOn(pdf,50,480)
 
-        if len(texto1)<500:
+        if len(texto1)<470:
             p = Paragraph(texto1, styles["Justify"])
             p.wrapOn(pdf, 720, 200)
-            p.drawOn(pdf,50,820)
+            p.drawOn(pdf,50,830)
+
+        elif len(texto1)<540:
+            p = Paragraph(texto1, styles["Justify"])
+            p.wrapOn(pdf, 720, 200)
+            p.drawOn(pdf,50,815)
+
+        elif len(texto1)<580:
+            p = Paragraph(texto1, styles["Justify"])
+            p.wrapOn(pdf, 720, 200)
+            p.drawOn(pdf,50,800)
+
+        elif len(texto1)<640:
+            p = Paragraph(texto1, styles["Justify"])
+            p.wrapOn(pdf, 720, 200)
+            p.drawOn(pdf,50,775)
+
+        elif len(texto1)<700:
+            p = Paragraph(texto1, styles["Justify"])
+            p.wrapOn(pdf, 720, 200)
+            p.drawOn(pdf,50,760)
 
         else:
             p = Paragraph(texto1, styles["Justify"])
             p.wrapOn(pdf, 720, 200)
-            p.drawOn(pdf,50,810)
-
+            p.drawOn(pdf,50,750)
 
 
         pdf.setFillColor(text_color)
@@ -2474,10 +2497,17 @@ class RedRio(Nivel):
             width = self.pixelconverter(lluvia,height=height)
             xloc = widthPage/2.0 - (width/2.0)
             pdf.drawImage(lluvia,xloc,540,width = width,height = height)
+		
+	    if len(texto2)<500:
+            	p = Paragraph(texto2, styles["Justify"])
+            	p.wrapOn(pdf, 720, 200)
+            	p.drawOn(pdf,50,820)
 
-            p = Paragraph(texto2, styles["Justify"])
-            p.wrapOn(pdf, 720, 200)
-            p.drawOn(pdf,50,790)
+	    else:
+                p = Paragraph(texto2, styles["Justify"])
+                p.wrapOn(pdf, 720, 200)
+                p.drawOn(pdf,50,790)
+		
             textf4 = 'Figura 3. a) Distribuciones de frecuencia, número de aforos: %s, la línea punteada vertical es el caudal observado, la curva es una distribución de frecuencia acumulada que presenta el régimen de caudales. b) Resumen de estadísticos. Max = Caudal máximo, Min = Caudal mínimo, page25 = Percentil 25, P50 = Mediana, P75 = Percentil 75, Media = Caudal promedio, Std = desviación estándar, Obs = Caudal observado.'%(numero_aforos)
             p = Paragraph(textf3, styles["JustifyBold"])
             p.wrapOn(pdf, 716, 200)
