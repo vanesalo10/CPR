@@ -1086,17 +1086,33 @@ class Nivel(SqlDb,wmf.SimuBasin):
         fig.subplots_adjust(hspace=0.8)
         ax = fig.add_subplot(311)
         ax.set_title('Serie de tiempo')
+        max_text=True
         if window == '3h':
             lamina = 'current'
         else:
             lamina = 'max'
         try:
-            self.plot_level(series,
-                            lamina=lamina,
-                            risk_levels=np.array(self.risk_levels)/100.0,
-                            resolution='m',
-                            ax=ax,
-                            scatter_size=40)
+            if len(series.dropna()>=1):
+                self.plot_level(series,
+                                lamina=lamina,
+                                risk_levels=np.array(self.risk_levels)/100.0,
+                                resolution='m',
+                                ax=ax,
+                                scatter_size=40)
+            else:
+                now=pd.datetime.now()
+                new_time=pd.date_range(now-datetime.timedelta(hours=int(window.split('h')[0])),now,freq='10T')
+                series_aux=pd.Series(np.zeros(len(new_time)),index=new_time)
+                
+                self.plot_level(series_aux,
+                                lamina=lamina,
+                                risk_levels=np.array(self.risk_levels)/100.0,
+                                resolution='m',
+                                ax=ax,
+                                scatter_size=40)
+                max_text=False
+                ax.set_title('Datos no disponibles para la ventana de tiempo')
+        
         
             for tick in ax.xaxis.get_major_ticks():
                 tick.set_pad( 5.5 * tick.get_pad() )
@@ -1124,7 +1140,8 @@ class Nivel(SqlDb,wmf.SimuBasin):
                 minor_locator        = mdates.DayLocator(interval=7)
                 major_locator        = mdates.DayLocator(interval=7)
             if window !='3h':
-                ax.annotate(u'máximo', (mdates.date2num(series.argmax()), series.max()), xytext=(10, 10),textcoords='offset points',fontsize=14)
+                if max_text:
+                    ax.annotate(u'máximo', (mdates.date2num(series.argmax()), series.max()), xytext=(10, 10),textcoords='offset points',fontsize=14)
             ax.xaxis.set_major_locator(minor_locator) # notice minor_locator is the max_locator in ax
             ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
             subax.xaxis.set_major_locator(major_locator)
