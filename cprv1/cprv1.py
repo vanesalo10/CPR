@@ -85,7 +85,7 @@ class SqlDb:
         '''
         Engine connection: makes possible connection with SQL database
         '''
-        conn_db = MySQLdb.connect(self.host,self.user,self.passwd,self.dbname)
+        conn_db = MySQLdb.connect(self.host,self.user,self.passwd,self.dbname,use_unicode=True)
         return conn_db
 
     def logger(self,function,status,message):
@@ -2119,8 +2119,8 @@ class RedRio(Nivel):
         df.columns = map(lambda x:x.lower(),df.columns)
         self.seccion = df[self.seccion.columns]
         df = pd.read_excel(file,sheetname=1)
-        fecha = (df.iloc[1].values[1])
-        hora = (df.iloc[2].values[1])
+        fecha = pd.to_datetime(df.iloc[1].values[1])
+        hora = pd.to_datetime(df.iloc[2].values[1])
         self.aforo.fecha = fecha.strftime('%Y-%m-%d')+hora.strftime(' %H:%M')
         self.aforo['x_sensor'] = df.iloc[4].values[1]
         self.aforo['lamina'] = df.iloc[5].values[1]
