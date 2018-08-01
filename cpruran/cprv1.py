@@ -1904,7 +1904,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         remote_path = 'mcano@siata.gov.co:/var/www/mario/gifs/'
         os.system('ssh mcano@siata.gov.co "mkdir /var/www/mario/gifs/%s"'%(end.strftime('%Y%m%d')))
         query = "rsync -r %s.gif %s/%s/"%(filepath,remote_path+end.strftime('%Y%m%d'),self.codigo)
-        return os.system(query)
+        return os.system(query)   
         
 class RedRio(Nivel):
     def __init__(self,**kwargs):
