@@ -1071,7 +1071,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
     def loc_time_series(self,series,percent):
         return series.index[-1]+(series.index[-1]-series.index[0])*percent
     
-    def plot_operacional(self,series,bat,window,filepath):
+    def plot_operacional(self,series,window,filepath):
         '''
         Parameters
         ----------
@@ -1086,33 +1086,17 @@ class Nivel(SqlDb,wmf.SimuBasin):
         fig.subplots_adjust(hspace=0.8)
         ax = fig.add_subplot(311)
         ax.set_title('Serie de tiempo')
-        max_text=True
         if window == '3h':
             lamina = 'current'
         else:
             lamina = 'max'
         try:
-            if len(series.dropna()>=1):
-                self.plot_level(series,
-                                lamina=lamina,
-                                risk_levels=np.array(self.risk_levels)/100.0,
-                                resolution='m',
-                                ax=ax,
-                                scatter_size=40)
-            else:
-                now=pd.datetime.now()
-                new_time=pd.date_range(now-datetime.timedelta(hours=int(window.split('h')[0])),now,freq='10T')
-                series_aux=pd.Series(np.zeros(len(new_time)),index=new_time)
-                
-                self.plot_level(series_aux,
-                                lamina=lamina,
-                                risk_levels=np.array(self.risk_levels)/100.0,
-                                resolution='m',
-                                ax=ax,
-                                scatter_size=40)
-                max_text=False
-                ax.set_title('Datos no disponibles para la ventana de tiempo')
-        
+            self.plot_level(series,
+                            lamina=lamina,
+                            risk_levels=np.array(self.risk_levels)/100.0,
+                            resolution='m',
+                            ax=ax,
+                            scatter_size=40)
         
             for tick in ax.xaxis.get_major_ticks():
                 tick.set_pad( 5.5 * tick.get_pad() )
@@ -1140,8 +1124,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
                 minor_locator        = mdates.DayLocator(interval=7)
                 major_locator        = mdates.DayLocator(interval=7)
             if window !='3h':
-                if max_text:
-                    ax.annotate(u'máximo', (mdates.date2num(series.argmax()), series.max()), xytext=(10, 10),textcoords='offset points',fontsize=14)
+                ax.annotate(u'máximo', (mdates.date2num(series.argmax()), series.max()), xytext=(10, 10),textcoords='offset points',fontsize=14)
             ax.xaxis.set_major_locator(minor_locator) # notice minor_locator is the max_locator in ax
             ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
             subax.xaxis.set_major_locator(major_locator)
@@ -1153,6 +1136,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         # section
         ax2 = fig.add_subplot(312)
         alpha=0.2
+        bat = self.last_bat(self.info.x_sensor)
         ymax = max([bat['y'].max(),(self.risk_levels[-1])/100.0])
         
             # plot section
@@ -1185,16 +1169,24 @@ class Nivel(SqlDb,wmf.SimuBasin):
                         series.max(),
                         ['verde','amarillo','naranja','rojo','rojo'][self.convert_level_to_risk(series.max(),np.array(self.risk_levels)/100.0)],
                         series.mean())
-            text= u'Estación de Nivel tipo %s\nResolución temporal: 1 minutos\n%% de datos transmitidos: %.2f\nProfundidad máxima: %.2f [m]\nNivel de riesgo máximo: %s\nProfundidad promedio: %.2f [m]\n*Calidad de datos a\xfan\n sin verificar exhaustivamente'%(format)
+            text= u'-Estación de Nivel tipo %s\n-Resolución temporal: 1 minutos\n-%% de datos transmitidos: %.2f\n-Profundidad máxima: %.2f [m]\n-Nivel de riesgo máximo: %s\n-Profundidad promedio: %.2f [m]\n*Calidad de datos a\xfan sin \n verificar exhaustivamente'%(format)
         except:
             text = u'ESTACIÓN SIN DATOS TEMPORALMENTE'
-        ax3 = fig.add_subplot(313)
-        ax3.text(0.0,1.3,'RESUMEN',color = self.colores_siata[-1])
-        ax3.text(0.0, 0.0,text,linespacing=2.1)
+        
+        ax4=fig.add_subplot(413)   
+        img=plt.imread('leyenda.png')
+        im=ax4.imshow(img)
+        pos=im.axes.get_position()
+        im.axes.set_position((pos.x0-.026,pos.y0-.17,pos.x1-.026,pos.y1-.17))
+        ax4.axis('off')
+        
+        ax3 = fig.add_subplot(414)
+        ax3.text(0.0,1.1,'RESUMEN',color = self.colores_siata[-1])
+        ax3.text(0.0, 0.0,text,linespacing=2.1,fontsize=15)
         plt.axis('off')
         plt.suptitle('%s | %s'%(self.codigo,self.info.nombre),y=0.93)
         plt.savefig(filepath,bbox_inches='tight')
-        return ax,ax2,ax3    
+        return ax,ax2,ax3        
 
     def update_level_local(self,start,end):
         self.table = 'hydro'
