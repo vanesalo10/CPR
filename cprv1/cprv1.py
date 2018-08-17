@@ -85,7 +85,7 @@ class SqlDb:
         '''
         Engine connection: makes possible connection with SQL database
         '''
-        conn_db = MySQLdb.connect(self.host,self.user,self.passwd,self.dbname,use_unicode=True)
+        conn_db = MySQLdb.connect(self.host,self.user,self.passwd,self.dbname,charset='utf8')
         return conn_db
 
     def logger(self,function,status,message):
@@ -1071,7 +1071,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
     def loc_time_series(self,series,percent):
         return series.index[-1]+(series.index[-1]-series.index[0])*percent
     
-    def plot_operacional(self,series,window,filepath):
+    def plot_operacional(self,series,bat,window,filepath):
         '''
         Parameters
         ----------
@@ -1086,17 +1086,33 @@ class Nivel(SqlDb,wmf.SimuBasin):
         fig.subplots_adjust(hspace=0.8)
         ax = fig.add_subplot(311)
         ax.set_title('Serie de tiempo')
+        max_text=True
         if window == '3h':
             lamina = 'current'
         else:
             lamina = 'max'
         try:
-            self.plot_level(series,
-                            lamina=lamina,
-                            risk_levels=np.array(self.risk_levels)/100.0,
-                            resolution='m',
-                            ax=ax,
-                            scatter_size=40)
+            if len(series.dropna()>=1):
+                self.plot_level(series,
+                                lamina=lamina,
+                                risk_levels=np.array(self.risk_levels)/100.0,
+                                resolution='m',
+                                ax=ax,
+                                scatter_size=40)
+            else:
+                now=pd.datetime.now()
+                new_time=pd.date_range(now-datetime.timedelta(hours=int(window.split('h')[0])),now,freq='10T')
+                series_aux=pd.Series(np.zeros(len(new_time)),index=new_time)
+                
+                self.plot_level(series_aux,
+                                lamina=lamina,
+                                risk_levels=np.array(self.risk_levels)/100.0,
+                                resolution='m',
+                                ax=ax,
+                                scatter_size=40)
+                max_text=False
+                ax.set_title('Datos no disponibles para la ventana de tiempo')
+        
         
             for tick in ax.xaxis.get_major_ticks():
                 tick.set_pad( 5.5 * tick.get_pad() )
@@ -1124,7 +1140,8 @@ class Nivel(SqlDb,wmf.SimuBasin):
                 minor_locator        = mdates.DayLocator(interval=7)
                 major_locator        = mdates.DayLocator(interval=7)
             if window !='3h':
-                ax.annotate(u'máximo', (mdates.date2num(series.argmax()), series.max()), xytext=(10, 10),textcoords='offset points',fontsize=14)
+                if max_text:
+                    ax.annotate(u'máximo', (mdates.date2num(series.argmax()), series.max()), xytext=(10, 10),textcoords='offset points',fontsize=14)
             ax.xaxis.set_major_locator(minor_locator) # notice minor_locator is the max_locator in ax
             ax.xaxis.set_major_formatter(mdates.DateFormatter('%H:%M'))
             subax.xaxis.set_major_locator(major_locator)
@@ -1136,7 +1153,6 @@ class Nivel(SqlDb,wmf.SimuBasin):
         # section
         ax2 = fig.add_subplot(312)
         alpha=0.2
-        bat = self.last_bat(self.info.x_sensor)
         ymax = max([bat['y'].max(),(self.risk_levels[-1])/100.0])
         
             # plot section
@@ -1174,7 +1190,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
             text = u'ESTACIÓN SIN DATOS TEMPORALMENTE'
         
         ax4=fig.add_subplot(413)   
-        img=plt.imread('leyenda.png')
+        img=plt.imread('/media/nicolas/Home/Jupyter/Sebastian/git/CPR/cprv1/leyenda.png')
         im=ax4.imshow(img)
         pos=im.axes.get_position()
         im.axes.set_position((pos.x0-.026,pos.y0-.17,pos.x1-.026,pos.y1-.17))
@@ -1186,7 +1202,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         plt.axis('off')
         plt.suptitle('%s | %s'%(self.codigo,self.info.nombre),y=0.93)
         plt.savefig(filepath,bbox_inches='tight')
-        return ax,ax2,ax3        
+        return ax,ax2,ax3   
 
     def update_level_local(self,start,end):
         self.table = 'hydro'
@@ -2182,7 +2198,13 @@ class RedRio(Nivel):
         rain = self.radar_rain(start,end)*12.# convert hourly rain (intensity (mm/h))
         rain_vect = self.radar_rain_vect(start,end)
         self.maxint='fecha:%s,maximo:%s mm/h,fecha maximo:%s'%(fecha,rain.max(),rain.argmax())
-        self.plot_lluvia_redrio(rain,rain_vect,filepath=filepath)
+
+        if len(rain_vect)>0:
+            self.plot_lluvia_redrio(rain,rain_vect,filepath=filepath)
+        elif len(rain_vect)==0:
+            rain[0]=0.0001
+            rain_vect=pd.DataFrame(np.zeros(self.ncells)).T
+            self.plot_lluvia_redrio(rain,rain_vect,filepath=filepath)
 
     def plot_levantamientos(self):
         for id_aforo in self.levantamientos:
@@ -2358,7 +2380,7 @@ class RedRio(Nivel):
 
         textf1 = kwargs.get('textf1','Figura 1. a) Dibujo de la sección transversal del canal. b) Caudales horarios obtenidos a partir de profundidades de la lámina de agua.')
         textf2 = 'Tabla 1. Resumen, muestra el dispositivo con el que se realizó el aforo y los parámetros hidráulicos estimados más relevantes.'
-        textf3 = 'Figura 2. a) Distribución temporal de la lluvia en la cuenca. La sombra azul invertida representa la intensidad promedio en mm/h. b) Distribución espacial de la lluvia acumulada en la cuenca en mm en un periodo de 36 horas.'
+        textf3 = kwargs.get('textf3','Figura 2. a) Distribución temporal de la lluvia en la cuenca. La sombra azul invertida representa la intensidad promedio en mm/h. b) Distribución espacial de la lluvia acumulada en la cuenca en mm en un periodo de 36 horas.')
         text_color = '#%02x%02x%02x' % (8,31,45)
         widthPage =  816
         heightPage = 1056
@@ -2517,7 +2539,7 @@ class RedRio(Nivel):
                 p.wrapOn(pdf, 720, 200)
                 p.drawOn(pdf,50,790)
 		
-            textf4 = 'Figura 3. a) Distribuciones de frecuencia, número de aforos: %s, la línea punteada vertical es el caudal observado, la curva es una distribución de frecuencia acumulada que presenta el régimen de caudales. b) Resumen de estadísticos. Max = Caudal máximo, Min = Caudal mínimo, page25 = Percentil 25, P50 = Mediana, P75 = Percentil 75, Media = Caudal promedio, Std = desviación estándar, Obs = Caudal observado.'%(numero_aforos)
+            textf4 = 'Figura 3. a) Distribuciones de frecuencia, número de aforos: %s, la línea punteada vertical es el caudal observado, la curva es una distribución de frecuencia acumulada que presenta el régimen de caudales. b) Resumen de estadísticos. Max = Caudal máximo, Min = Caudal mínimo, P25 = Percentil 25, P50 = Mediana, P75 = Percentil 75, Media = Caudal promedio, Std = desviación estándar, Obs = Caudal observado.'%(numero_aforos)
             p = Paragraph(textf3, styles["JustifyBold"])
             p.wrapOn(pdf, 716, 200)
             p.drawOn(pdf,50,480)
@@ -2547,12 +2569,14 @@ class RedRio(Nivel):
                 p.wrapOn(pdf, 816, 200)
                 p.drawOn(pdf,0,945)
                 # pdf.drawImage('/media/nicolas/Home/Jupyter/MarioLoco/tools/acumuladoLegend.jpg',642,570,width=43.64,height=200)
-                pdf.drawImage('/media/nicolas/Home/Jupyter/MarioLoco/tools/arrow.png',595,575,width=20,height=20)
-                pdf.drawString(600,596,"N")
+                pdf.drawImage('/media/nicolas/Home/Jupyter/MarioLoco/tools/arrow.png',kwargs.get('left',595),575,width=20,height=20)
+                left=kwargs.get('left',590)
+                pdf.drawString(left+10,596,"N")
                 pdf.setFont("AvenirBook", 14)
                 pdf.setFillColor('#%02x%02x%02x' % (8,31,45))
-                pdf.drawString(205,770,"a)")
-                pdf.drawString(590,770,"b)")
+                if left>560:
+                    pdf.drawString(205,770,"a)")
+                    pdf.drawString(590,770,"b)")
                 x = 460
             else:
                 p = Paragraph(u'Estación %s - %s'%(nombreEstacion.encode('utf8'),fecha), styles["Texts"])
