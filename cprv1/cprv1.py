@@ -214,7 +214,7 @@ class SqlDb:
         '''
         format = (how,date_field_name,self.table,self.codigo)
         return self.read_sql("select %s(%s) from %s where codigo='%s'"%format).loc[0,'%s(%s)'%(how,date_field_name)]
-    # functions for id_hydro
+
     @property
     def info(self):
         '''
@@ -275,7 +275,7 @@ class SqlDb:
                 ")"
         return query
 
-    def fecha_hora_format_data(self,field,start,end):
+    def fecha_hora_format_data(self,field,start,end,**kwargs):
         '''
         Gets pandas Series with data from tables with
         date format fecha and hora detached, and filter
@@ -293,7 +293,11 @@ class SqlDb:
         end = pd.to_datetime(end).strftime('%Y-%m-%d %H:%M:00')
         format = (field,self.codigo,self.fecha_hora_query(start,end))
         sql = SqlDb(codigo = self.codigo,**info.REMOTE)
-        df = sql.read_sql("SELECT fecha,hora,%s from datos WHERE cliente = '%s' and %s"%format)
+        if kwargs.get('calidad'):
+            print('using quality')
+            df = sql.read_sql("SELECT fecha,hora,%s from datos WHERE calidad = '1' and cliente = '%s' and %s"%format)
+        else:
+            df = sql.read_sql("SELECT fecha,hora,%s from datos WHERE cliente = '%s' and %s"%format)
         # converts centiseconds in 0
         try:
             df['hora'] = df['hora'].apply(lambda x:x[:-3]+':00')
@@ -608,7 +612,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         '''
         return self.radar_rain(start,end,ext='.bin',**kwargs)
 
-    def sensor(self,start,end):
+    def sensor(self,start,end,**kwargs):
         '''
         Reads remote sensor level data
         Parameters
@@ -620,10 +624,10 @@ class Nivel(SqlDb,wmf.SimuBasin):
         pandas time series
         '''
         sql = SqlDb(codigo = self.codigo,**self.remote_server)
-        s = sql.fecha_hora_format_data(['pr','NI'][self.info.tipo_sensor],start,end)
+        s = sql.fecha_hora_format_data(['pr','NI'][self.info.tipo_sensor],start,end,**kwargs)
         return s
         
-    def level(self,start,end,offset='new'):
+    def level(self,start,end,offset='new',**kwargs):
         '''
         Reads remote level data
         Parameters
@@ -634,7 +638,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         ----------
         pandas DataFrame with datetime index and basin radar fields
         '''
-        s = self.sensor(start,end)
+        s = self.sensor(start,end,**kwargs)
         if offset == 'new':
             serie = self.info.offset - s
             serie[serie>=self.info.offset_old] = np.NaN
@@ -1506,7 +1510,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         mins = date.minute - (date.minute % round_mins)
         return datetime.datetime(date.year, date.month, date.day, date.hour, mins) + datetime.timedelta(minutes=round_mins)
 
-    def level_all(self,start=None,end = None,hours=3):
+    def level_all(self,start=None,end = None,hours=3,**kwargs):
         if start:
             start = pd.to_datetime(start)
             end = pd.to_datetime(end)
@@ -1517,7 +1521,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         df = pd.DataFrame(index = pd.date_range(start,end,freq='5min'),columns = codigos)
         for codigo in codigos:
             try:
-                level = Nivel(codigo=codigo,user='sample_user',passwd='s@mple_p@ss').level(start,end).resample('5min').mean()
+                level = Nivel(codigo=codigo,user='sample_user',passwd='s@mple_p@ss').level(start,end,**kwargs).resample('5min').mean()
                 df[codigo] = level
             except:
                 pass
