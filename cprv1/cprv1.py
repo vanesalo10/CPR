@@ -1516,7 +1516,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         else:
             end = pd.to_datetime(self.round_time())
             start = end - datetime.timedelta(hours = hours)
-        codigos = self.infost.index
+        codigos = kwargs.get('codigos',self.infost.index)
         df = pd.DataFrame(index = pd.date_range(start,end,freq='5min'),columns = codigos)
         for codigo in codigos:
             try:
