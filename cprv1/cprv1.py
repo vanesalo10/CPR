@@ -289,15 +289,17 @@ class SqlDb:
         ----------
         pandas time Series
         '''
-        start= pd.to_datetime(start).strftime('%Y-%m-%d %H:%M:00')
-        end = pd.to_datetime(end).strftime('%Y-%m-%d %H:%M:00')
+        date_format = '%Y-%m-%d %H:%M:00'
+        start= pd.to_datetime(start).strftime(date_format)
+        end = pd.to_datetime(end).strftime(date_format)
         format = (field,self.codigo,self.fecha_hora_query(start,end))
         sql = SqlDb(codigo = self.codigo,**info.REMOTE)
         if kwargs.get('calidad'):
             df = sql.read_sql("SELECT fecha,hora,%s from datos WHERE calidad = '1' and cliente = '%s' and %s"%format)
         else:
             df = sql.read_sql("SELECT fecha,hora,%s from datos WHERE cliente = '%s' and %s"%format)
-        # converts centiseconds in 0
+        # removes null dates
+        df = df.drop(df[df['fecha'].isnull()].index)
         try:
             df['hora'] = df['hora'].apply(lambda x:x[:-3]+':00')
         except TypeError:
@@ -311,7 +313,7 @@ class SqlDb:
         # masks duplicated index
         df[df.index.duplicated(keep=False)]=np.NaN
         df = df.dropna()
-        # drops coluns fecha and hora
+        # drops columns fecha and hora
         df = df.drop(['fecha','hora'],axis=1)
         # reindex to have all indexes in full time series
         new_index = pd.date_range(start,end,freq='min')
