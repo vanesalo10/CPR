@@ -320,7 +320,6 @@ class SqlDb:
         series = df.reindex(new_index)[field]
         return series
 
-
 class Nivel(SqlDb,wmf.SimuBasin):
     '''
     Provide functions to manipulate data related
@@ -1513,8 +1512,8 @@ class Nivel(SqlDb,wmf.SimuBasin):
 
     def level_all(self,start=None,end = None,hours=3,**kwargs):
         if start:
-            start = pd.to_datetime(start)
-            end = pd.to_datetime(end)
+            start = self.round_time(pd.to_datetime(start))
+            end   = self.round_time(pd.to_datetime(end))
         else:
             end = pd.to_datetime(self.round_time())
             start = end - datetime.timedelta(hours = hours)
