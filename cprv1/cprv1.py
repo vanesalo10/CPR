@@ -294,7 +294,6 @@ class SqlDb:
         format = (field,self.codigo,self.fecha_hora_query(start,end))
         sql = SqlDb(codigo = self.codigo,**info.REMOTE)
         if kwargs.get('calidad'):
-            print('using quality')
             df = sql.read_sql("SELECT fecha,hora,%s from datos WHERE calidad = '1' and cliente = '%s' and %s"%format)
         else:
             df = sql.read_sql("SELECT fecha,hora,%s from datos WHERE cliente = '%s' and %s"%format)
@@ -318,6 +317,11 @@ class SqlDb:
         new_index = pd.date_range(start,end,freq='min')
         series = df.reindex(new_index)[field]
         return series
+
+    def round_time(self,date = datetime.datetime.now(),round_mins=5):
+        mins = date.minute - (date.minute % round_mins)
+        return datetime.datetime(date.year, date.month, date.day, date.hour, mins) + datetime.timedelta(minutes=round_mins)
+
 
 
 class Nivel(SqlDb,wmf.SimuBasin):
@@ -544,7 +548,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         file path or None for no coincidences
         '''
         def todate(date):
-            return pd.to_datetime(pd.to_datetime(date).strftime('%Y-%m-%d %H:%M')) 
+            return pd.to_datetime(pd.to_datetime(date).strftime('%Y-%m-%d %H:%M'))
         start,end = todate(start),todate(end)
         files = os.listdir(self.rain_path)
         if files:
@@ -626,7 +630,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         sql = SqlDb(codigo = self.codigo,**self.remote_server)
         s = sql.fecha_hora_format_data(['pr','NI'][self.info.tipo_sensor],start,end,**kwargs)
         return s
-        
+
     def level(self,start,end,offset='new',**kwargs):
         '''
         Reads remote level data
@@ -1074,7 +1078,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
 
     def loc_time_series(self,series,percent):
         return series.index[-1]+(series.index[-1]-series.index[0])*percent
-    
+
     def plot_operacional(self,series,bat,window,filepath):
         '''
         Parameters
@@ -1107,7 +1111,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
                 now=pd.datetime.now()
                 new_time=pd.date_range(now-datetime.timedelta(hours=int(window.split('h')[0])),now,freq='10T')
                 series_aux=pd.Series(np.zeros(len(new_time)),index=new_time)
-                
+
                 self.plot_level(series_aux,
                                 lamina=lamina,
                                 risk_levels=np.array(self.risk_levels)/100.0,
@@ -1116,8 +1120,8 @@ class Nivel(SqlDb,wmf.SimuBasin):
                                 scatter_size=40)
                 max_text=False
                 ax.set_title('Datos no disponibles para la ventana de tiempo')
-        
-        
+
+
             for tick in ax.xaxis.get_major_ticks():
                 tick.set_pad( 5.5 * tick.get_pad() )
             # subaxis for xticks in siata format
@@ -1158,7 +1162,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         ax2 = fig.add_subplot(312)
         alpha=0.2
         ymax = max([bat['y'].max(),(self.risk_levels[-1])/100.0])
-        
+
             # plot section
         if series.dropna().index.size == 0:
             lamina = 0.0
@@ -1192,21 +1196,21 @@ class Nivel(SqlDb,wmf.SimuBasin):
             text= u'-Estación de Nivel tipo %s\n-Resolución temporal: 1 minutos\n-%% de datos transmitidos: %.2f\n-Profundidad máxima: %.2f [m]\n-Nivel de riesgo máximo: %s\n-Profundidad promedio: %.2f [m]\n*Calidad de datos a\xfan sin \n verificar exhaustivamente'%(format)
         except:
             text = u'ESTACIÓN SIN DATOS TEMPORALMENTE'
-        
-        ax4=fig.add_subplot(413)   
+
+        ax4=fig.add_subplot(413)
         img=plt.imread('/media/nicolas/Home/Jupyter/Sebastian/git/CPR/cprv1/leyenda.png')
         im=ax4.imshow(img)
         pos=im.axes.get_position()
         im.axes.set_position((pos.x0-.026,pos.y0-.17,pos.x1-.026,pos.y1-.17))
         ax4.axis('off')
-        
+
         ax3 = fig.add_subplot(414)
         ax3.text(0.0,1.1,'RESUMEN',color = self.colores_siata[-1])
         ax3.text(0.0, 0.0,text,linespacing=2.1,fontsize=15)
         plt.axis('off')
         plt.suptitle('%s | %s'%(self.codigo,self.info.nombre),y=0.93)
         plt.savefig(filepath,bbox_inches='tight')
-        return ax,ax2,ax3   
+        return ax,ax2,ax3
 
     def update_level_local(self,start,end):
         self.table = 'hydro'
@@ -1214,14 +1218,14 @@ class Nivel(SqlDb,wmf.SimuBasin):
             s = self.sensor(start,end).resample('5min').mean()
             self.update_series(s,'nivel')
         except:
-            print 'WARNING: No data for %s'%self.codigo 
-            
+            print 'WARNING: No data for %s'%self.codigo
+
     def update_level_local_all(self,start,end):
         start,end = pd.to_datetime(start),pd.to_datetime(end)
         timer = datetime.datetime.now()
         size = self.infost.index.size
         for count,codigo in enumerate(self.infost.index):
-            obj = Nivel(codigo = codigo,user='sample_user',passwd='s@mple_p@ss',SimuBasin=False)
+            obj = Nivel(codigo = codigo,SimuBasin=False,**info.LOCAL)
             obj.table = 'hydro'
             print "%s out of %s | %s"%(count+1,size,obj.info.nombre)
             obj.update_level_local(start,end)
@@ -1272,7 +1276,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         # write the document to disk
         doc.build(elements)
         #doc.drawString(200,5000,u'Nivel sin riesgo')
-        
+
     def add_area_metropol(self,m):
         m.readshapefile('/media/nicolas/maso/Mario/shapes/AreaMetropolitana','area',linewidth=0.5,color='w')
         x,y = m(self.info.longitud,self.info.latitud)
@@ -1288,7 +1292,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         plt.gca().add_collection(PatchCollection(patches,color='grey',edgecolor='w',zorder=1,alpha=0.3,label='asdf'))
         for frame in ['top','bottom','right','left']:
             plt.gca().spines[frame].set_color('w')
-            
+
     def plot_rain_future(self,current_vect,future_vect,filepath=None):
         plt.close('all')
         fig = plt.figure(figsize=(16,8))
@@ -1306,7 +1310,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         self.add_area_metropol(m)
         if filepath:
             plt.savefig(filepath,bbox_inches='tight')
-    
+
     def plot_level_report(self,level,rain,riesgos,fontsize=14,ncol=4,ax=None,bbox_to_anchor=(1.0,1.2),**kwargs):
         if ax is None:
             fig = plt.figure(figsize=(13.,4))
@@ -1336,7 +1340,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         ax.scatter(level.index[-1],level.loc[level.index[-1]],color='grey',s=120+scatterSize+60,edgecolors='grey',zorder=39)
         ax.scatter(level.index[-1],level.loc[level.index[-1]],color='w',s=120+scatterSize+60,edgecolors='k',zorder=40)
         ax.scatter(level.index[-1],level.loc[level.index[-1]],marker='v',color='k',s=20+scatterSize,zorder=41)
-        
+
     def rain_report(self,date):
         date = pd.to_datetime(date)
         start = date-datetime.timedelta(minutes=150)# 3 horas atras
@@ -1362,7 +1366,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         level_cond = (series.dropna().size/series.size) < 0.05 # condición de nivel para graficar
         rain_cond = len(current_vect)==0.0
         if level_cond:
-            print 'Not enough level data'   
+            print 'Not enough level data'
         if rain_cond:
             print 'Not rain in basin'
         if level_cond or rain_cond:
@@ -1377,7 +1381,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
             os.system('ssh mcano@siata.gov.co "mkdir /var/www/mario/reportes_lluvia/%s"'%(date.strftime('%Y%m%d')))
             query = "rsync -r %s %s/%s/"%(filepath+'_report.pdf',remote_path+date.strftime('%Y%m%d'),self.codigo)
             os.system(query)
-    
+
     def rain_report_reportlab(self,filepath,date):
         avenir_book_path = '/media/nicolas/Home/Jupyter/MarioLoco/Tools/AvenirLTStd-Book.ttf'
         from reportlab.pdfbase import pdfmetrics
@@ -1439,7 +1443,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         pdf.drawString(700,160+y-5,'Profundidad actual')
         pdf.showPage()
         pdf.save()
-        
+
     def level_local_all(self,start,end):
         start,end = (start.strftime('%Y-%m-%d %H:%M'),end.strftime('%Y-%m-%d %H:%M'))
         query = "select codigo,fecha,nivel from hydro where fecha between '%s' and '%s'"%(start,end)
@@ -1451,10 +1455,10 @@ class Nivel(SqlDb,wmf.SimuBasin):
         df = df.set_index('fecha',append=True)
         df[df<0.0] = np.NaN
         return df.unstack(0)['nivel']
-    
+
     def make_rain_report_current(self,codigos):
         for codigo in codigos:
-            nivel = cpr.Nivel(codigo = codigo,user='sample_user',passwd='s@mple_p@ss',SimuBasin=True)
+            nivel = cpr.Nivel(codigo = codigo,SimuBasin=True,**info.LOCAL)
             nivel.rain_report(datetime.datetime.now())
 
     def risk_df(self,df):
@@ -1466,7 +1470,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
                 df[codigo] = np.NaN
         df = df[df.sum().sort_values(ascending=False).index].T
         return df
-    
+
     def make_risk_report(self,df,figsize=(6,14),bbox_to_anchor = (-0.15, 1.09),ruteSave = None,legend=True):
         import matplotlib.colors as mcolors
         from matplotlib.patches import Rectangle
@@ -1506,22 +1510,18 @@ class Nivel(SqlDb,wmf.SimuBasin):
         alpha=1
         height = 8
 
-    def round_time(self,date = datetime.datetime.now(),round_mins=5):
-        mins = date.minute - (date.minute % round_mins)
-        return datetime.datetime(date.year, date.month, date.day, date.hour, mins) + datetime.timedelta(minutes=round_mins)
-
     def level_all(self,start=None,end = None,hours=3,**kwargs):
         if start:
-            start = pd.to_datetime(start)
-            end = pd.to_datetime(end)
+            start = self.round_time(pd.to_datetime(start))
+            end   = self.round_time(pd.to_datetime(end))
         else:
             end = pd.to_datetime(self.round_time())
             start = end - datetime.timedelta(hours = hours)
-        codigos = self.infost.index
+        codigos = kwargs.get('codigos',self.infost.index)
         df = pd.DataFrame(index = pd.date_range(start,end,freq='5min'),columns = codigos)
         for codigo in codigos:
             try:
-                level = Nivel(codigo=codigo,user='sample_user',passwd='s@mple_p@ss').level(start,end,**kwargs).resample('5min').mean()
+                level = Nivel(codigo=codigo,** info.LOCAL).level(start,end,**kwargs).resample('5min').mean()
                 df[codigo] = level
             except:
                 pass
@@ -1539,13 +1539,13 @@ class Nivel(SqlDb,wmf.SimuBasin):
         plt.savefig(filepath,bbox_inches='tight')
         os.system('scp %s mcano@siata.gov.co:/var/www/mario/realTime/'%filepath)
         return in_risk
-    
+
     def reporte_nivel(self):
         def convert_to_risk(df):
             df = self.risk_df(df)
             return df[df.columns.dropna()]
         self.make_risk_report_current(convert_to_risk(self.level_all()))
-        
+
     def rain_area_metropol(self,vec,ax,f=1):
         cmap_radar,levels,norm = self.radar_cmap()
         extra_lat,extra_long = self.adjust_basin(fac=0.02)
@@ -1591,21 +1591,21 @@ class Nivel(SqlDb,wmf.SimuBasin):
         for frame in ['top','bottom','right','left']:
             ax.spines[frame].set_color('w')
         cbar = m.colorbar(contour,location='right',pad="5%")
-        
+
     def convert_series_to_risk(self,level):
         '''level: pandas Series, index = codigos de estaciones'''
         risk = level.copy()
         colors = ['green','gold','orange','red','red','black']
         for codigo in level.index:
             try:
-                risks = cpr.Nivel(codigo = codigo,user='sample_user',passwd='s@mple_p@ss').risk_levels
+                risks = cpr.Nivel(codigo = codigo,**info.LOCAL).risk_levels
                 risk[codigo] = colors[int(self.convert_level_to_risk(level[codigo],risks))]
             except:
                 risk[codigo] = 'black'
         return risk
 
     def reporte_lluvia(self,end,filepath=None):
-            self = Nivel(codigo=260,user='sample_user',passwd = 's@mple_p@ss',SimuBasin=True)
+            self = Nivel(codigo=260,SimuBasin=True,**info.LOCAL)
             #end = datetime.datetime.now()
             start = end - datetime.timedelta(hours=3)
             posterior = end + datetime.timedelta(minutes=10)
@@ -1665,7 +1665,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
             if filepath:
                 plt.savefig(filepath,bbox_inches='tight')
             #os.system('scp %s mcano@siata.gov.co:/var/www/mario/realTime/reporte_lluvia_cuenca.png'%filepath)
-        
+
     def plot_risk_daily(self,df,bbox_to_anchor = (-0.15, 1.09),figsize=(6,14),ruteSave = None,legend=True,fontsize=20):
         import matplotlib.colors as mcolors
         def make_colormap(seq):
@@ -1748,7 +1748,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         filepath = None
 
         for num,codigo in enumerate(np.array(last_day_risk,int)):
-            obj = Nivel(codigo=codigo,user='sample_user',passwd='s@mple_p@ss',SimuBasin=False)
+            obj = Nivel(codigo=codigo,SimuBasin=False,**info.LOCAL)
             series = df.loc[daily.index[-1].strftime('%Y-%m-%d'),codigo]
             series = obj.level(series.index[0],series.index[-1])
             if series.dropna().index.size==0.0:
@@ -1806,7 +1806,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
                 plt.savefig(filepath,bbox_inches='tight')
                 os.system('rsync %s %s'%(filepath,remote_path+end.strftime('%Y%m%d')+'/'))
 
-        obj = Nivel(codigo=260,user='sample_user',passwd='s@mple_p@ss',SimuBasin=True)
+        obj = Nivel(codigo=260,SimuBasin=True,**info.LOCAL)
         radar_rain = obj.radar_rain_vect(start,end)
         diario = radar_rain.resample('D').sum()
         rain = obj.radar_rain(start,end)
@@ -1820,7 +1820,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         remote_path = 'mcano@siata.gov.co:/var/www/mario/reporte_diario/'
         query = "rsync -r %s %s/"%(folder_path+'/lluvia_diaria.png',remote_path+end.strftime('%Y%m%d'))
         os.system(query)
-        
+
     def gif(self,start,end,delay=0,loop=0):
         start,end = pd.to_datetime(start),pd.to_datetime(end)
         rain_vect = self.radar_rain_vect(start,end)
@@ -1886,7 +1886,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
             ax4 = fig.add_subplot(2,2,4)
             self.rain_area_metropol(vec,ax4,f=f)
             ax2.set_ylim(0,ymax)
-            #cb = plt.colorbar(ax, cax = cbaxes)  
+            #cb = plt.colorbar(ax, cax = cbaxes)
             #cb.set_level('[mm]')
             ax1.set_title(u'Profundidad de la lámina de agua')
             ax2.set_title(u'Sección transversal del canal')
@@ -1917,7 +1917,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         os.system('ssh mcano@siata.gov.co "mkdir /var/www/mario/gifs/%s"'%(end.strftime('%Y%m%d')))
         query = "rsync -r %s.gif %s/%s/"%(filepath,remote_path+end.strftime('%Y%m%d'),self.codigo)
         return os.system(query)
-        
+
 class RedRio(Nivel):
     def __init__(self,**kwargs):
         Nivel.__init__(self,**kwargs)
@@ -1936,35 +1936,35 @@ class RedRio(Nivel):
         self.levantamiento = pd.DataFrame(columns = ['vertical','x','y'])
         self.alturas = pd.DataFrame(index=pd.date_range(start = pd.to_datetime('2018').strftime('%Y-%m-%d 06:00'),periods=13,freq='H'),columns = ['profundidad','offset','lamina','caudal'])
         self.alturas.index = map(lambda x:x.strftime('%H:00'),self.alturas.index)
-        
+
     @property
     def info_redrio(self):
         return pd.read_csv('/media/nicolas/Home/Jupyter/MarioLoco/redrio/info_redrio.csv',index_col=0)
-    
+
     @property
     def caudales(self):
         return self.aforos().set_index('fecha')['caudal']
-    
+
     @property
     def folder_path(self):
         return self.workspace+pd.to_datetime(self.fecha).strftime('%Y%m%d')+'/'+self.info.slug+'/'
-    
+
     @property
     def aforo_nueva(self):
         pass
-    
+
     @property
     def seccion_aforo_nueva(self):
         pass
-    
+
     @property
     def levantamiento_aforo_nueva(self):
         pass
-    
+
     def get_levantamiento(self,id_aforo):
         seccion = self.read_sql("SELECT * FROM levantamiento_aforo_nueva WHERE id_aforo = '%s'"%(id_aforo)).set_index('vertical')
         return seccion[['x','y']].sort_index()
-    
+
     def aforos(self,filter=True):
         aforos = self.read_sql("SELECT %s from aforo_nueva where id_estacion_asociada = '%s'"%(self.parametros,self.codigo))
         aforos = aforos.set_index('id_aforo')
@@ -1980,12 +1980,12 @@ class RedRio(Nivel):
     @property
     def levantamientos(self):
         return self.aforos(filter=False)[self.aforos(filter=False)['levantamiento']].index
-        
+
     def insert_vel(self,vertical,v02,v04,v08):
         self.seccion.loc[vertical,'v02'] = v02
         self.seccion.loc[vertical,'v04'] = v04
         self.seccion.loc[vertical,'v08'] = v08
-        
+
     def velocidad_media_dovela(self):
         columns = [u'vertical', u'x', u'y', u'v01', u'v02', u'v03', u'v04', u'v05', u'v06', u'v07', u'v08', u'v09', u'vsup']
         dfs = self.seccion[columns].copy()
@@ -2019,16 +2019,16 @@ class RedRio(Nivel):
         elif (index == ['vertical','x','y','v02','v04','v08']) or (index == ['vertical','x','y','v02','v04','v08','vsup']):
             vm = (2*vertical['v04']+vertical['v08']+vertical['v02'])/4.0
         return vm
-    
+
     def perimetro(self):
         x,y = (self.seccion['x'].values,self.seccion['y'].values)
         def perimetro(x,y):
             p = []
             for i in range(len(x)-1):
-                p.append(float(np.sqrt(abs(x[i]-x[i+1])**2.0+abs(y[i]-y[i+1])**2.0))) 
+                p.append(float(np.sqrt(abs(x[i]-x[i+1])**2.0+abs(y[i]-y[i+1])**2.0)))
             return [0]+p
         self.seccion['perimetro'] = perimetro(self.seccion['x'].values,self.seccion['y'].values)
-        
+
     def get_area(self,x,y):
         '''Calcula las áreas y los caudales de cada
         una de las verticales, con el método de mid-section
@@ -2049,7 +2049,7 @@ class RedRio(Nivel):
         area = np.absolute(area)
         # cálculo de caudal
         return area
-    
+
     def plot_compara_historicos(self,**kwargs):
         s = kwargs.get('s',self.aforos()['caudal_medio'])
         filepath = self.folder_path+'historico.png'
@@ -2057,7 +2057,7 @@ class RedRio(Nivel):
         xLabel = r"Caudal$\ [m^{3}/s]$"
         formato = 'png'
         fig = plt.figure(figsize=(14,4.15))
-        ax1 = plt.subplot(121)    
+        ax1 = plt.subplot(121)
         ##CUMULATIVE
         ser = s.copy()
         ser.index = range(ser.index.size)
@@ -2069,7 +2069,7 @@ class RedRio(Nivel):
         cum_dist = np.linspace(0.,1.,len(ser))
         ser_cdf = pd.Series(cum_dist, index=ser)
         lw=4.0
-        ax = ax1.twinx() 
+        ax = ax1.twinx()
         ser_cdf = ser_cdf*100
         ser_cdf.plot(ax=ax,color='orange',drawstyle='steps',label='',lw=lw)
         ser_cdf[ser_cdf<=25].plot(ax = ax,color='g',drawstyle='steps',label='Caudales bajos',lw=lw)
@@ -2122,7 +2122,7 @@ class RedRio(Nivel):
             text.append(label.get_text())
         ax2.xaxis.set_ticks(map(lambda x:round(x,2),np.linspace(s.min(),s.max(),4)))
         plt.savefig(filepath,format = formato,bbox_inches = 'tight')
-    
+
     def read_excel_format(self,file):
         df = pd.read_excel(file)
         df = df.loc[df['x'].dropna().index]
@@ -2141,7 +2141,7 @@ class RedRio(Nivel):
         self.levantamiento.columns = ['x','y']
         self.levantamiento.index.name = 'vertical'
         self.aforo.levantamiento = True
-    
+
 
     def plot_lluvia_redrio(self,rain,rain_vect,filepath=None):
         fig = plt.figure(figsize=(20,8))
@@ -2164,7 +2164,7 @@ class RedRio(Nivel):
     def plot_bars(self,s,filepath=None,bar_fontsize=14,decimales=2,xfactor =1.005,yfactor=1.01,ax=None):
         if ax is None:
             plt.figure(figsize=(20,6))
-            
+
         s.plot(kind='bar',ax=ax)
         ax.set_ylim(s.min()*0.01,s.max()*1.01)
         for container in ax.containers:
@@ -2189,7 +2189,7 @@ class RedRio(Nivel):
             ax.set_ylabel(j)
         if filepath:
             plt.savefig(filepath,bbox_inches='tight')
-            
+
     def plot_lluvia(self):
         # entrada
         #paths
@@ -2214,7 +2214,7 @@ class RedRio(Nivel):
         for id_aforo in self.levantamientos:
             self.plot_section(self.get_levantamiento(id_aforo),x_sensor=2,level=0.0)
             plt.title("%s : %s,%s"%(self.info.slug,self.codigo,id_aforo))
-            
+
     def procesa_aforo(self):
         self.velocidad_media_dovela()
         self.area_dovela()
@@ -2228,7 +2228,7 @@ class RedRio(Nivel):
         self.aforo.altura_media = self.seccion['y'].abs()[self.seccion['y'].abs()>0.0].mean()
         self.aforo.radio_hidraulico = self.aforo.area_total/self.aforo.perimetro
         self.fecha = self.aforo.fecha
-        
+
     def plot_seccion(self):
         self.ajusta_levantamiento()
         self.plot_section(self.levantamiento,xSensor = self.aforo.x_sensor,level=self.aforo.lamina,fontsize=20)
@@ -2240,7 +2240,7 @@ class RedRio(Nivel):
         ax.set_ylabel('Profundidad [m]')
         ax.spines['top'].set_color('w')
         ax.spines['right'].set_color('w')
-        plt.savefig(self.folder_path+'seccion.png',bbox_inches='tight') 
+        plt.savefig(self.folder_path+'seccion.png',bbox_inches='tight')
 
     def ajusta_levantamiento(self):
         cond = (self.levantamiento['x']<self.aforo.x_sensor).values
@@ -2256,7 +2256,7 @@ class RedRio(Nivel):
         self.levantamiento['y'] = self.levantamiento['y']-intersection[1]
         self.levantamiento.index = range(1,self.levantamiento.index.size+1)
         self.levantamiento.index.name = 'vertical'
-        
+
     def procesa_horarios(self):
         df_alturas = pd.DataFrame(index=self.alturas.index,columns=self.seccion.vertical)
         df_areas = df_alturas.copy()
@@ -2304,7 +2304,7 @@ class RedRio(Nivel):
             print 'no hourly data'
             pass
         writer.save()
-        
+
     def get_num_pixels(self,filepath):
         import Image
         width, height = Image.open(open(filepath)).size
@@ -2314,7 +2314,7 @@ class RedRio(Nivel):
         w,h = self.get_num_pixels(filepath)
         factor = float(w)/h
         if width<>False:
-            return width/factor 
+            return width/factor
         else:
             return height*factor
 
@@ -2328,7 +2328,7 @@ class RedRio(Nivel):
         texto1           = path to the plain tex file containing the first paragraph of the report which correspond to the descripiton of the registered levels trought the day and the station tranversal section.
         texto2           = path to the plain tex file containing the second paragraph of the report which correspond to the descripiton of the radar antecedent and current rainfall for the campaign date.
         seccion          = path to the png or jpeg file containing a representation of the tranversal section measured.
-        alturas          = path to the png or jpeg file containing the hourly level of water registered during the campaign. 
+        alturas          = path to the png or jpeg file containing the hourly level of water registered during the campaign.
         lluvia           = path to the png or jpeg file containing the radar rainfall plots to be analyzed.
         histograma       = path to the png or jpeg file containing the stattistics for the historic gauging campaigns.
         resultados       = path to the excel file containing the gauging campaign data and results for the station.
@@ -2336,11 +2336,11 @@ class RedRio(Nivel):
         numero_aforos    = number of gauging campaigns carried out.
         foot (ptional)   = path to the png or jpeg file containing the page foot of the report (Logos)
         head (ptional)   = path to the png or jpeg file containing the page header of the report
-        estadisticas(opt) 
+        estadisticas(opt)
         heights          = set False to not display the hourly registered levels in the first figure of this report.
         page2            = set False to not display the second page of this report.
         table            = set False to not display the results table.
-        one_page         = set True to only display the level and section figure (and its description) and the rainfall figure. 
+        one_page         = set True to only display the level and section figure (and its description) and the rainfall figure.
         '''
         from reportlab.lib.pagesizes import letter
         from reportlab.platypus import SimpleDocTemplate,Paragraph, Table, TableStyle
@@ -2476,7 +2476,7 @@ class RedRio(Nivel):
         p = Paragraph(u'Estación %s - %s'%(nombreEstacion.encode('utf8'),fecha), styles["Texts"])
         p.wrapOn(pdf, 816, 200)
         p.drawOn(pdf,0,945)
-    
+
         data= [['Caudal total [m^3/s] ', round(float(resultados.caudal_medio),2), 'Dispositivo', dispositivo],
                [u'Área mojada [m^2]',round(float(resultados.area_total),2), 'Ancho superficial [m]',round(float(resultados.ancho_superficial),2)],
                ['Profundidad media [m]', round(float(resultados.altura_media),2), 'Velocidad promedio [m/s]',round(float(resultados.velocidad_media),2)],
@@ -2523,7 +2523,7 @@ class RedRio(Nivel):
 
         pdf.showPage()
 
-        #PÁGINA 2 
+        #PÁGINA 2
 
         if page2==True:
             pdf.drawImage(foot,816/2-(100/(209/906.))/2,10,width=(100/(209/906.)),height=100)
@@ -2532,7 +2532,7 @@ class RedRio(Nivel):
             width = self.pixelconverter(lluvia,height=height)
             xloc = widthPage/2.0 - (width/2.0)
             pdf.drawImage(lluvia,xloc,540,width = width,height = height)
-		
+
 	    if len(texto2)<500:
             	p = Paragraph(texto2, styles["Justify"])
             	p.wrapOn(pdf, 720, 200)
@@ -2542,7 +2542,7 @@ class RedRio(Nivel):
                 p = Paragraph(texto2, styles["Justify"])
                 p.wrapOn(pdf, 720, 200)
                 p.drawOn(pdf,50,790)
-		
+
             textf4 = 'Figura 3. a) Distribuciones de frecuencia, número de aforos: %s, la línea punteada vertical es el caudal observado, la curva es una distribución de frecuencia acumulada que presenta el régimen de caudales. b) Resumen de estadísticos. Max = Caudal máximo, Min = Caudal mínimo, P25 = Percentil 25, P50 = Mediana, P75 = Percentil 75, Media = Caudal promedio, Std = desviación estándar, Obs = Caudal observado.'%(numero_aforos)
             p = Paragraph(textf3, styles["JustifyBold"])
             p.wrapOn(pdf, 716, 200)
