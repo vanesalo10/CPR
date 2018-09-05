@@ -43,7 +43,7 @@ locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
 #sudo locale-gen es_ES.UTF-8
 #sudo dpkg-reconfigure locales
 # Siata settings
-plt.rc('font', family=fm.FontProperties(fname='/media/nicolas/maso/Mario/tools/AvenirLTStd-Book.ttf',).get_name())
+#plt.rc('font', family=fm.FontProperties(fname='/media/nicolas/maso/Mario/tools/AvenirLTStd-Book.ttf',).get_name())
 typColor = '#%02x%02x%02x' % (8,31,45)
 plt.rc('axes',labelcolor=typColor)
 plt.rc('axes',edgecolor=typColor)
