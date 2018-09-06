@@ -97,11 +97,15 @@ HIDRAULICA = {
 	'user'						: u'Usuario que modifica',
 			}
 # argumentos por defecto para class SqlDb servidor local
+
 LOCAL = {
-	'host'  					:"localhost",
-	'dbname'					:"cpr",
+	'host'  					: "192.168.1.12",
+	'user'  					: "sample_user",
+	'passwd'					: "s@mple_p@ss",
+	'table' 					: 'estaciones',
+	'dbname'					: "siata",
 	'port'  					: 3306
-                }
+			}
 # argumentos por defecto para class SqlDb servidor de siata
 REMOTE = {
 	'host'  					: "192.168.1.74",
