@@ -1,14 +1,18 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
+#
+#  CRP.py
+#
+#  Copyright 2018 MCANO <mario.cano@siata.gov.co>
 
-from wmf import wmf 
-#import func_SIATA as fs
+from wmf import wmf
 import netCDF4
 import pylab as pl
 import numpy as np
 import datetime as dt
 import argparse
 import textwrap
-import os 
+import os
 import pandas as pd
 import glob
 
@@ -17,7 +21,7 @@ parser=argparse.ArgumentParser(
 	prog='RadarStraConv2Basin',
 	formatter_class=argparse.RawDescriptionHelpFormatter,
 	description=textwrap.dedent('''\
-	Toma los campos de precip, conv y stratiformes tipo nc y los 
+	Toma los campos de precip, conv y stratiformes tipo nc y los
         convierte al formato de la cuenca, esta segunda version
 		obtiene tambien los campos con intervalos maximos y minimos
 		de precipitacion.
@@ -30,7 +34,7 @@ parser.add_argument("rutaNC",help="(Obligatorio) Ruta donde estan los nc")
 parser.add_argument("rutaRes", help = "Ruta donde se guardan las imagenes procesadas")
 parser.add_argument("-t","--dt",help="(Opcional) Delta de t en segundos",default = 300,type=float)
 parser.add_argument("-u","--umbral",help="(Opcional) Umbral de lluvia minima",default = 0.005,type=float)
-parser.add_argument("-v","--verbose",help="Informa sobre la fecha que esta agregando", 
+parser.add_argument("-v","--verbose",help="Informa sobre la fecha que esta agregando",
 	action = 'store_true')
 parser.add_argument("-s","--super_verbose",help="Imprime para cada posicion las imagenes que encontro",
 	action = 'store_true')
@@ -46,7 +50,7 @@ parser.add_argument("-j","--save_escenarios",help="Guarda los binarios con los u
 #lee todos los argumentos
 args=parser.parse_args()
 #-------------------------------------------------------------------------------------------------------------------------------------
-#OBTIENE FECHAS Y DEJA ESE TEMA LISTO 
+#OBTIENE FECHAS Y DEJA ESE TEMA LISTO
 #-------------------------------------------------------------------------------------------------------------------------------------
 #Obtiene las fechas por dias
 datesDias = pd.date_range(args.fechaI, args.fechaF,freq='D')
@@ -75,7 +79,7 @@ for d in ListDays:
         datesDias.append(dt.datetime.strptime(d[:12],'%Y%m%d%H%M'))
     except:
         pass
-        
+
 
 datesDias = pd.to_datetime(datesDias)
 #Obtiene las fechas por Dt
@@ -135,18 +139,18 @@ for dates,pos in zip(datesDt[1:],PosDates):
 		for c,p in enumerate(pos):
 			#Lee la imagen de radar para esa fecha
 			g = netCDF4.Dataset(ListRutas[p])
-			RadProp = [g.ncols, g.nrows, g.xll, g.yll, g.dx, g.dx]                        
-			#Agrega la lluvia en el intervalo 
-			rvec += cuAMVA.Transform_Map2Basin(g.variables['Rain'][:].T/ (12*1000.0), RadProp) 
+			RadProp = [g.ncols, g.nrows, g.xll, g.yll, g.dx, g.dx]
+			#Agrega la lluvia en el intervalo
+			rvec += cuAMVA.Transform_Map2Basin(g.variables['Rain'][:].T/ (12*1000.0), RadProp)
 			if args.save_escenarios:
-				rhigh += cuAMVA.Transform_Map2Basin(g.variables['Rhigh'][:].T / (12*1000.0), RadProp) 
-				rlow += cuAMVA.Transform_Map2Basin(g.variables['Rlow'][:].T / (12*1000.0), RadProp) 
+				rhigh += cuAMVA.Transform_Map2Basin(g.variables['Rhigh'][:].T / (12*1000.0), RadProp)
+				rlow += cuAMVA.Transform_Map2Basin(g.variables['Rlow'][:].T / (12*1000.0), RadProp)
 			#Agrega la clasificacion para la ultima imagen del intervalo
 			ConvStra = cuAMVA.Transform_Map2Basin(g.variables['Conv_Strat'][:].T, RadProp)
 			Conv = np.copy(ConvStra)
 			Conv[Conv == 1] = 0; Conv[Conv == 2] = 1
 			Stra = np.copy(ConvStra)
-			Stra[Stra == 2] = 0 
+			Stra[Stra == 2] = 0
 			rvec[(Conv == 0) & (Stra == 0)] = 0
 			if args.save_escenarios:
 				rhigh[(Conv == 0) & (Stra == 0)] = 0
@@ -162,8 +166,8 @@ for dates,pos in zip(datesDt[1:],PosDates):
 			rlow = np.zeros(cuAMVA.ncells)
 		Conv = np.zeros(cuAMVA.ncells)
 		Stra = np.zeros(cuAMVA.ncells)
-	
-	
+
+
 	#rvec[ConvStra==0] = 0
 	#rhigh[ConvStra==0] = 0
 	#rlow[ConvStra==0] = 0
@@ -184,7 +188,7 @@ for dates,pos in zip(datesDt[1:],PosDates):
 			fecha = dates-dt.timedelta(hours = 5),
 			dt = args.dt,
 			umbral = args.umbral)
-	if dentro == 0: 
+	if dentro == 0:
 		hagalo = True
 	else:
 		hagalo = False
@@ -201,7 +205,7 @@ for dates,pos in zip(datesDt[1:],PosDates):
 			ruta_out = args.rutaRes+'_stra',
 			fecha = dates-dt.timedelta(hours = 5),
 			dt = args.dt,
-			doit = hagalo)	
+			doit = hagalo)
     #Opcion Vervose
 	if args.verbose:
 		print dates.strftime('%Y%m%d-%H:%M'), pos
