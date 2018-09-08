@@ -98,11 +98,11 @@ HIDRAULICA = {
 			}
 # argumentos por defecto para class SqlDb servidor local
 LOCAL = {
-	'host'  					: "192.168.1.12",
+	'host'  					: "localhost",
 	'user'  					: "sample_user",
 	'passwd'					: "s@mple_p@ss",
 	'table' 					: 'estaciones',
-	'dbname'					: "siata",
+	'dbname'					: "cpr",
 	'port'  					: 3306
 			}
 # argumentos por defecto para class SqlDb servidor de siata
@@ -137,7 +137,7 @@ GEOPARAMETERS = {
 				'Perimetro[km]'           : u'perimetro'
 				}
 
-DATA_PATH  = '/media/nicolas/maso/Mario/'
-RADAR_PATH = '/media/nicolas/Home/nicolas/101_RadarClass/'
-DATA_PATH  = '/home/mcano/Dev/cprweb/src/media/'
+#DATA_PATH  = '/media/nicolas/maso/Mario/'
+#RADAR_PATH = '/media/nicolas/Home/nicolas/101_RadarClass/'
 RADAR_PATH = '/home/mcano/Dev/cprweb/src/media/radar_rain/'
+DATA_PATH  = '/home/mcano/Dev/cprweb/src/media/'

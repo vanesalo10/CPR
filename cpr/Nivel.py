@@ -82,46 +82,157 @@ class Nivel(SqlDb,wmf.SimuBasin):
         return self.read_sql(query).set_index('codigo')
 
     @staticmethod
-    def get_radar_rain(start,end,nc_path,radar_path,save, converter = 'RadarConvStra2Basin.py', utc=False,dt = 300,*keys,**kwargs):
-        '''
-        Convert radar rain to basin
-        Parameters
-        ----------
-        start         : inicial date
-        end           : final date
-        nc_path       : path to nc basin file
-        radar_path    : path to radar data
-        save          : path to save
-        converter     : path of main rain converter script,default RadarConvStra2Basin.py
-        utc           : if radar data is in utc
-        dt            : timedelta, default = 5 minutes
-        Returns
-        ----------
-        bin, hdr files with rain data
-        '''
-        start = pd.to_datetime(start); end = pd.to_datetime(end)
-        if utc ==True:
-            delay = datetime.timedelta(hours=5)
-            start = start+delay
-            end = end + delay
-        hora_inicial = start.strftime('%H:%M')
-        hora_final = end.strftime('%H:%M')
-        format = (
-                converter,
-                start.strftime('%Y-%m-%d'),
-                end.strftime('%Y-%m-%d'),
-                nc_path,
-                radar_path,
-                save,
-                dt,
-                hora_inicial,
-                hora_final
-                 )
-        query = '%s %s %s %s %s %s -t %s -v -s -1 %s -2 %s'%format
-        output = os.system(query)
-	if output != 0:
-            print 'ERROR: something went wrong getting radar rain'
-        return query
+    def get_radar_rain(start,end,cuenca,rutaNc,rutaRes,dt,umbral,verbose,super_verbose,old,save_class,save_escenarios,store_true,**kwargs):
+        from wmf import wmf
+        import netCDF4
+        import glob
+        datesDias = pd.date_range(start,end,freq='D')
+        a = pd.Series(np.zeros(len(datesDias)),index=datesDias)
+        a = a.resample('A').sum()
+        Anos = [i.strftime('%Y') for i in a.index.to_pydatetime()]
+        datesDias = [d.strftime('%Y%m%d') for d in datesDias.to_pydatetime()]
+        ListDays = []
+        ListRutas = []
+        for d in datesDias:
+            try:
+                L = glob.glob(rutaNc + d + '*.nc')
+                ListRutas.extend(L)
+                ListDays.extend([i[-23:-11] for i in L])
+            except:
+                pass
+        #Organiza las listas de dias y de rutas
+        ListDays.sort()
+        ListRutas.sort()
+        datesDias = []
+        for d in ListDays:
+            try:
+                datesDias.append(datetime.datetime.strptime(d[:12],'%Y%m%d%H%M'))
+            except:
+                pass
+
+        datesDias = pd.to_datetime(datesDias)
+        #Obtiene las fechas por Dt
+        textdt = '%d' % dt
+        #Agrega hora a la fecha inicial
+        datesDt = pd.date_range(start,end,freq = textdt+'s')
+        #Obtiene las posiciones de acuerdo al dt para cada fecha
+        PosDates = []
+        pos1 = [0]
+        for d1,d2 in zip(datesDt[:-1],datesDt[1:]):
+                pos2 = np.where((datesDias<d2) & (datesDias>=d1))[0].tolist()
+                if len(pos2) == 0:
+                        pos2 = pos1
+                else:
+                        pos1 = pos2
+                PosDates.append(pos2)
+        #-------------------------------------------------------------------------------------------------------------------------------------
+        #CARGADO DE LA CUENCA SOBRE LA CUAL SE REALIZA EL TRABAJO DE OBTENER CAMPOS
+        #-------------------------------------------------------------------------------------------------------------------------------------
+        #Carga la cuenca del AMVA
+        cuAMVA = wmf.SimuBasin(rute = cuenca)
+        cuConv = wmf.SimuBasin(rute = cuenca)
+        cuStra = wmf.SimuBasin(rute = cuenca)
+        cuHigh = wmf.SimuBasin(rute = cuenca)
+        cuLow =  wmf.SimuBasin(rute = cuenca)
+
+        #si el binario el viejo, establece las variables para actualizar
+        if old:
+            cuAMVA.rain_radar2basin_from_array(status='old',ruta_out= rutaRes)
+            if save_class:
+                cuConv.rain_radar2basin_from_array(status='old',ruta_out= rutaRes + '_conv')
+                cuStra.rain_radar2basin_from_array(status='old',ruta_out= rutaRes + '_stra')
+            if save_escenarios:
+                cuHigh.rain_radar2basin_from_array(status='old',ruta_out= rutaRes + '_high')
+                cuLow.rain_radar2basin_from_array(status='old',ruta_out= rutaRes + '_low')
+        #Itera sobre las fechas para actualizar el binario de campos
+        datesDt = datesDt.to_pydatetime()
+        for dates,pos in zip(datesDt[1:],PosDates):
+            rvec = np.zeros(cuAMVA.ncells, dtype = float)
+            if save_escenarios:
+                rhigh = np.zeros(cuAMVA.ncells, dtype = float)
+                rlow = np.zeros(cuAMVA.ncells, dtype = float)
+            Conv = np.zeros(cuAMVA.ncells, dtype = int)
+            Stra = np.zeros(cuAMVA.ncells, dtype = int)
+            try:
+                for c,p in enumerate(pos):
+                    #Lee la imagen de radar para esa fecha
+                    g = netCDF4.Dataset(ListRutas[p])
+                    RadProp = [g.ncols, g.nrows, g.xll, g.yll, g.dx, g.dx]
+                    #Agrega la lluvia en el intervalo
+                    rvec += cuAMVA.Transform_Map2Basin(g.variables['Rain'][:].T/ (12*1000.0), RadProp)
+                    if save_escenarios:
+                        rhigh += cuAMVA.Transform_Map2Basin(g.variables['Rhigh'][:].T / (12*1000.0), RadProp)
+                        rlow += cuAMVA.Transform_Map2Basin(g.variables['Rlow'][:].T / (12*1000.0), RadProp)
+                    #Agrega la clasificacion para la ultima imagen del intervalo
+                    ConvStra = cuAMVA.Transform_Map2Basin(g.variables['Conv_Strat'][:].T, RadProp)
+                    Conv = np.copy(ConvStra)
+                    Conv[Conv == 1] = 0; Conv[Conv == 2] = 1
+                    Stra = np.copy(ConvStra)
+                    Stra[Stra == 2] = 0
+                    rvec[(Conv == 0) & (Stra == 0)] = 0
+                    if save_escenarios:
+                        rhigh[(Conv == 0) & (Stra == 0)] = 0
+                        rlow[(Conv == 0) & (Stra == 0)] = 0
+                    Conv[rvec == 0] = 0
+                    Stra[rvec == 0] = 0
+                    #Cierra el netCDFs
+                    g.close()
+            except Exception, e:
+                rvec = np.zeros(cuAMVA.ncells)
+                if save_escenarios:
+                    rhigh = np.zeros(cuAMVA.ncells)
+                    rlow = np.zeros(cuAMVA.ncells)
+                Conv = np.zeros(cuAMVA.ncells)
+                Stra = np.zeros(cuAMVA.ncells)
+            dentro = cuAMVA.rain_radar2basin_from_array(vec = rvec,
+                ruta_out = rutaRes,
+                fecha = dates-datetime.timedelta(hours = 5),
+                dt = dt,
+                umbral = umbral)
+            if save_escenarios:
+                dentro = cuHigh.rain_radar2basin_from_array(vec = rhigh,
+                    ruta_out = rutaRes+'_high',
+                    fecha = dates-datetime.timedelta(hours = 5),
+                    dt = dt,
+                    umbral = umbral)
+                dentro = cuLow.rain_radar2basin_from_array(vec = rlow,
+                    ruta_out = rutaRes+'_low',
+                    fecha = dates-datetime.timedelta(hours = 5),
+                    dt = dt,
+                    umbral = umbral)
+            if dentro == 0:
+                hagalo = True
+            else:
+                hagalo = False
+            #mira si guarda o no los clasificados
+            if save_class:
+                #Escribe el binario convectivo
+                aa = cuConv.rain_radar2basin_from_array(vec = Conv,
+                    ruta_out = rutaRes+'_conv',
+                    fecha = dates-datetime.timedelta(hours = 5),
+                    dt = dt,
+                    doit = hagalo)
+                #Escribe el binario estratiforme
+                aa = cuStra.rain_radar2basin_from_array(vec = Stra,
+                    ruta_out = rutaRes+'_stra',
+                    fecha = dates-datetime.timedelta(hours = 5),
+                    dt = dt,
+                    doit = hagalo)
+            #Opcion Vervose
+            if verbose:
+                print dates.strftime('%Y%m%d-%H:%M'), pos
+
+        #Cierrra el binario y escribe encabezado
+        cuAMVA.rain_radar2basin_from_array(status = 'close',ruta_out = rutaRes)
+        if save_class:
+            cuConv.rain_radar2basin_from_array(status = 'close',ruta_out = rutaRes+'_conv')
+            cuStra.rain_radar2basin_from_array(status = 'close',ruta_out = rutaRes+'_stra')
+        if save_escenarios:
+            cuHigh.rain_radar2basin_from_array(status = 'close',ruta_out = rutaRes+'_high')
+            cuLow.rain_radar2basin_from_array(status = 'close',ruta_out = rutaRes+'_low')
+        #Imprime en lo que va
+        if verbose:
+                print 'Encabezados de binarios de cuenca cerrados y listos'
 
     @staticmethod
     def hdr_to_series(path):
@@ -251,11 +362,14 @@ class Nivel(SqlDb,wmf.SimuBasin):
         files = os.listdir(self.rain_path)
         if files:
             for file in files:
-                comienza,finaliza,codigo,usuario = self.file_format_to_variables(file)
-                if (comienza<=start) and (finaliza>=end) and (codigo==self.codigo):
-                    file =  file[:file.find('.')]
-                    break
-                else:
+                try:
+                    comienza,finaliza,codigo,usuario = self.file_format_to_variables(file)
+                    if (comienza<=start) and (finaliza>=end) and (codigo==self.codigo):
+                        file =  file[:file.find('.')]
+                        break
+                    else:
+                        file = None
+                except:
                     file = None
         else:
             file = None
@@ -283,9 +397,24 @@ class Nivel(SqlDb,wmf.SimuBasin):
             obj = obj.loc[start:end]
         else:
             print 'WARNING: converting rain data, it may take a while'
-            converter = 'RadarConvStra2Basin.py'
-            save =  '%s%s'%(self.rain_path,self.file_format(start,end))
-            self.get_radar_rain(start,end,self.nc_path,self.radar_path,save,converter=converter,utc=True)
+            delay = datetime.timedelta(hours=5)
+            kwargs =  {
+                        'start':start+delay,
+                        'end':end+delay,
+                        'cuenca':self.nc_path,
+                        'rutaNc':self.radar_path,
+                        'rutaRes':self.rain_path+self.file_format(start,end),
+                        'dt':300,
+                        'umbral': 0.005,
+                        'verbose':False,
+                        'super_verbose':True,
+                        'old':None,
+                        'save_class':None,
+                        'store_true':None,
+                        'save_escenarios':None,
+                        'store_true':None,
+                       }
+            self.get_radar_rain(**kwargs)
             file = self.rain_path + self.check_rain_files(start,end)
             if ext == '.hdr':
                 obj =  self.hdr_to_series(file+'.hdr')
