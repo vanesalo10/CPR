@@ -83,6 +83,12 @@ class Nivel(SqlDb,wmf.SimuBasin):
 
     @staticmethod
     def get_radar_rain(start,end,cuenca,rutaNc,rutaRes,dt,umbral,verbose,super_verbose,old,save_class,save_escenarios,store_true,**kwargs):
+        '''
+        Gets full information from all stations
+        Returns
+        ---------
+        pd.Data
+        '''
         from wmf import wmf
         import netCDF4
         import glob
@@ -125,10 +131,6 @@ class Nivel(SqlDb,wmf.SimuBasin):
                 else:
                         pos1 = pos2
                 PosDates.append(pos2)
-        #-------------------------------------------------------------------------------------------------------------------------------------
-        #CARGADO DE LA CUENCA SOBRE LA CUAL SE REALIZA EL TRABAJO DE OBTENER CAMPOS
-        #-------------------------------------------------------------------------------------------------------------------------------------
-        #Carga la cuenca del AMVA
         cuAMVA = wmf.SimuBasin(rute = cuenca)
         cuConv = wmf.SimuBasin(rute = cuenca)
         cuStra = wmf.SimuBasin(rute = cuenca)
@@ -221,7 +223,6 @@ class Nivel(SqlDb,wmf.SimuBasin):
             #Opcion Vervose
             if verbose:
                 print dates.strftime('%Y%m%d-%H:%M'), pos
-
         #Cierrra el binario y escribe encabezado
         cuAMVA.rain_radar2basin_from_array(status = 'close',ruta_out = rutaRes)
         if save_class:
@@ -749,7 +750,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         else:
             offset = self.info.offset_old
         format = (self.codigo,start,end)
-        query = "select fecha,nivel from hydro where codigo='%s' and fecha between '%s' and '%s';"%format
+        query = "select fecha,profundidad from myusers_hydrodata where codigo='%s' and fecha between '%s' and '%s';"%format
         level =  (offset - self.read_sql(query).set_index('fecha')['nivel'])
         level[level>self.risk_levels[-1]*1.2] = np.NaN
         level[level>offset] = np.NaN
@@ -1186,7 +1187,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         ----------
         last topo-batimetry in db, DataFrame
         '''
-        self.table = 'hydro'
+        self.table = 'myusers_hydrodata'
         try:
             s = self.sensor(start,end).resample('5min').mean()
             self.update_series(s,'nivel')
@@ -1208,7 +1209,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         size = self.infost.index.size
         for count,codigo in enumerate(self.infost.index):
             obj = Nivel(codigo = codigo,SimuBasin=False,**info.LOCAL)
-            obj.table = 'hydro'
+            obj.table = 'myusers_hydrodata'
             obj.update_level_local(start,end)
         seconds = (datetime.datetime.now()-timer).seconds
 
@@ -1224,7 +1225,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         '''
         end = datetime.datetime.now()
         start = end - datetime.timedelta(days=7)
-        df = self.read_sql("select fecha,nivel,codigo from hydro where fecha between '%s' and '%s'"%(start.strftime('%Y-%m-%d %H:%M'),end.strftime('%Y-%m-%d %H:%M')))
+        df = self.read_sql("select fecha,nivel,codigo from myusers_hydrodata where fecha between '%s' and '%s'"%(start.strftime('%Y-%m-%d %H:%M'),end.strftime('%Y-%m-%d %H:%M')))
         now = datetime.datetime.now()
         s = pd.DataFrame(df.loc[df.nivel.notnull()].groupby('codigo')['fecha'].max().sort_values())
         s['nombre'] = self.infost.loc[s.index,'nombre']
@@ -1494,7 +1495,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         last topo-batimetry in db, DataFrame
         '''
         start,end = (start.strftime('%Y-%m-%d %H:%M'),end.strftime('%Y-%m-%d %H:%M'))
-        query = "select codigo,fecha,nivel from hydro where fecha between '%s' and '%s'"%(start,end)
+        query = "select codigo,fecha,profundidad from myusers_hydrodata where fecha between '%s' and '%s'"%(start,end)
         df = self.read_sql(query).set_index('codigo').loc[self.infost.index].set_index('fecha',append=True)
         codigos = df.index.levels[0]
         nivel = df.reset_index('fecha').loc[codigos,'nivel']
