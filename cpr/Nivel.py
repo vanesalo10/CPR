@@ -452,45 +452,27 @@ class Nivel(SqlDb,wmf.SimuBasin):
         s = self.fecha_hora_format_data(['pr','NI'][self.info.tipo_sensor],start,end,**kwargs)
         return s
 
-    def level(self,start,end,offset='new',**kwargs):
+    def level(self,start,end,local=False,**kwargs):
         '''
         Reads remote level data
         Parameters
         ----------
         start        : initial date
         end          : final date
+        local        : obtains level from local database
         Returns
         ----------
         pandas DataFrame with datetime index and basin radar fields
         '''
-        s = self.sensor(start,end,**kwargs)
-        if offset == 'new':
-            serie = self.info.offset - s
-            serie[serie>=self.info.offset_old] = np.NaN
+        if local:
+            format = (self.info.id,start,end)
+            query = "select fecha,profundidad from myusers_hydrodata where fk_id = '%s' and fecha between '%s' and '%s';"%format
+            serie = self.read_sql(query).set_index('fecha')['profundidad']
         else:
-            serie = self.info.offset_old - s
-            serie[serie>=self.info.offset_old] = np.NaN
-        serie[serie<=0.0] = np.NaN
+            s = self.sensor(start,end,**kwargs)
+            serie = self.info.offset - s
+            serie[serie<=0.0] = np.NaN
         return serie
-
-    def offset_remote(self):
-        '''
-        Reads remote offset
-        Parameters
-        ----------
-        Returns
-        ----------
-        remote offset, Float
-        '''
-        remote = SqlDb(**self.remote_server)
-        query = "SELECT codigo,fecha_hora,offset FROM historico_bancallena_offset"
-        df = remote.read_sql(query).set_index('codigo')
-        try:
-            offset = float(df.loc[self.codigo,'offset'])
-        except TypeError:
-            offset =  df.loc[self.codigo,['fecha_hora','offset']].set_index('fecha_hora').sort_index()['offset'][-1]
-        return offset
-
 
     def mysql_query(self,query,pandas=True):
         '''
@@ -734,27 +716,6 @@ class Nivel(SqlDb,wmf.SimuBasin):
         levels_nuevos = np.linspace(np.min(lev),np.max(lev),255)
         norm_new_radar = colors.BoundaryNorm(boundaries=levels_nuevos, ncolors=256)
         return cmap_radar,levels_nuevos,norm_new_radar
-
-    def level_local(self,start,end,offset='new'):
-        '''
-        Gets last topo-batimetry in db
-        Parameters
-        ----------
-        x_sensor   :   x location of sensor or point to adjust topo-batimetry
-        Returns
-        ----------
-        last topo-batimetry in db, DataFrame
-        '''
-        if offset=='new':
-            offset = self.info.offset
-        else:
-            offset = self.info.offset_old
-        format = (self.codigo,start,end)
-        query = "select fecha,profundidad from myusers_hydrodata where codigo='%s' and fecha between '%s' and '%s';"%format
-        level =  (offset - self.read_sql(query).set_index('fecha')['nivel'])
-        level[level>self.risk_levels[-1]*1.2] = np.NaN
-        level[level>offset] = np.NaN
-        return level
 
     def convert_level_to_risk(self,value,risk_levels):
         ''' Convierte lamina de agua o profundidad a nivel de riesgo
@@ -1495,7 +1456,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         last topo-batimetry in db, DataFrame
         '''
         start,end = (start.strftime('%Y-%m-%d %H:%M'),end.strftime('%Y-%m-%d %H:%M'))
-        query = "select codigo,fecha,profundidad from myusers_hydrodata where fecha between '%s' and '%s'"%(start,end)
+        query = "select fk_id,fecha,profundidad from myusers_hydrodata where fecha between '%s' and '%s'"%(start,end)
         df = self.read_sql(query).set_index('codigo').loc[self.infost.index].set_index('fecha',append=True)
         codigos = df.index.levels[0]
         nivel = df.reset_index('fecha').loc[codigos,'nivel']
@@ -2106,3 +2067,33 @@ class Nivel(SqlDb,wmf.SimuBasin):
         new_index = pd.date_range(start,end,freq='min')
         series = df.reindex(new_index)[field]
         return series
+
+    def insert_if_exist_update_level(self,df,verbose=True):
+        '''
+        inserts values into local table, if fk_id and fecha exists, updates the level value
+        Parameters
+        ----------
+        df   :   level DataFrame
+        Returns
+        ----------
+        mysql execution
+        '''
+        inicia = datetime.datetime.now()
+        table = 'myusers_hydrodata'
+        date_format = '%Y-%m-%d %H:%M'
+        now = datetime.datetime.now().strftime(date_format)
+        query = 'INSERT INTO %s (fk_id,fecha,profundidad,timestamp,updated,user_id) VALUES '%table
+        for codigo,s in df.iteritems():
+            for fecha in s.index:
+                fecha   = fecha.strftime(date_format)
+                value   = s[fecha]
+                fk_id   = self.infost.loc[codigo,'id']
+                now     = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
+                formats = (fk_id,fecha,round(value,3),now,now,1)
+                query  += "('%s','%s','%s','%s','%s','%s'),"%formats
+        query = query[:-1]
+        query += ' ON DUPLICATE KEY UPDATE profundidad = VALUES(profundidad)'
+        query = query.replace("'nan'",'NULL')
+        self.execute_sql(query)
+        if verbose:
+            print(datetime.datetime.now()-inicia)
