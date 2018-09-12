@@ -18,6 +18,7 @@ import matplotlib.dates as mdates
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from matplotlib.patches import Polygon
+from matplotlib.collections import PatchCollection
 
 from SqlDb import SqlDb
 # default config
@@ -84,10 +85,22 @@ class Nivel(SqlDb,wmf.SimuBasin):
     @staticmethod
     def get_radar_rain(start,end,cuenca,rutaNc,rutaRes,dt,umbral,verbose,super_verbose,old,save_class,save_escenarios,store_true,**kwargs):
         '''
-        Gets full information from all stations
-        Returns
-        ---------
-        pd.Data
+        Gets radar rain and saves it into path as .hdr and .bin files
+        Parameters
+        --------------
+        start           : initial date
+        end             : final date
+        cuenca          : wmf simubasin, nc filepath
+        rutaNc          : radar_rain nc folderpath
+        rutaRes         : output filename (without .hdr or .bin extention)
+        dt              : time resolution
+        umbral          : umbral
+        verbose         : if print
+        super_verbose   : if print all
+        old_save        : ?
+        save_class      : ?
+        save_escenarios : ?
+        store_true      : ?
         '''
         from wmf import wmf
         import netCDF4
@@ -222,7 +235,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
                     doit = hagalo)
             #Opcion Vervose
             if verbose:
-                print dates.strftime('%Y%m%d-%H:%M'), pos
+                print (dates.strftime('%Y%m%d-%H:%M'), pos)
         #Cierrra el binario y escribe encabezado
         cuAMVA.rain_radar2basin_from_array(status = 'close',ruta_out = rutaRes)
         if save_class:
@@ -233,7 +246,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
             cuLow.rain_radar2basin_from_array(status = 'close',ruta_out = rutaRes+'_low')
         #Imprime en lo que va
         if verbose:
-                print 'Encabezados de binarios de cuenca cerrados y listos'
+                print ('Encabezados de binarios de cuenca cerrados y listos')
 
     @staticmethod
     def hdr_to_series(path):
@@ -555,31 +568,16 @@ class Nivel(SqlDb,wmf.SimuBasin):
         # cálculo de caudal
         return area
 
-    def get_areas(self,dfs):
-        '''
-        Gets last topo-batimetry in db
-        Parameters
-        ----------
-        x_sensor   :   x location of sensor or point to adjust topo-batimetry
-        Returns
-        ----------
-        last topo-batimetry in db, DataFrame
-        '''
-        area = 0
-        for df in dfs:
-            area+=sum(self.get_area(df['x'].values,df['y'].values))
-        return area
-
     @staticmethod
     def line_intersection(line1, line2):
         '''
-        Gets last topo-batimetry in db
+        Estimates position of intersection from two lines
         Parameters
         ----------
-        x_sensor   :   x location of sensor or point to adjust topo-batimetry
+        line1  and line 2 : lines each with format ((x1,y1),(x2,y2))
         Returns
         ----------
-        last topo-batimetry in db, DataFrame
+        point (x,y)
         '''
         xdiff = (line1[0][0] - line1[1][0], line2[0][0] - line2[1][0])
         ydiff = (line1[0][1] - line1[1][1], line2[0][1] - line2[1][1])
@@ -597,12 +595,6 @@ class Nivel(SqlDb,wmf.SimuBasin):
     def longitude_latitude_basin(self):
         '''
         Gets last topo-batimetry in db
-        Parameters
-        ----------
-        x_sensor   :   x location of sensor or point to adjust topo-batimetry
-        Returns
-        ----------
-        last topo-batimetry in db, DataFrame
         '''
         mcols,mrows = wmf.cu.basin_2map_find(self.structure,self.ncells)
         mapa,mxll,myll=wmf.cu.basin_2map(self.structure,self.structure[0],mcols,mrows,self.ncells)
@@ -612,13 +604,17 @@ class Nivel(SqlDb,wmf.SimuBasin):
 
     def basin_mappable(self,vec=None, extra_long=0,extra_lat=0,perimeter_keys={},contour_keys={},**kwargs):
         '''
-        Gets last topo-batimetry in db
+        intro
         Parameters
         ----------
-        x_sensor   :   x location of sensor or point to adjust topo-batimetry
+        vec            :
+        extra_long     :
+        extra_lat      :
+        perimeter_keys :
+        contour_keys   :
         Returns
         ----------
-        last topo-batimetry in db, DataFrame
+        output
         '''
         longs,lats=self.longitude_latitude_basin()
         x,y=np.meshgrid(longs,lats)
@@ -641,13 +637,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
 
     def adjust_basin(self,rel=0.766,fac=0.0):
         '''
-        Gets last topo-batimetry in db
-        Parameters
-        ----------
-        x_sensor   :   x location of sensor or point to adjust topo-batimetry
-        Returns
-        ----------
-        last topo-batimetry in db, DataFrame
+        generator
         '''
         longs,lats = self.longitude_latitude_basin()
         x = longs[-1]-longs[0]
@@ -663,13 +653,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
 
     def radar_cmap(self):
         '''
-        Gets last topo-batimetry in db
-        Parameters
-        ----------
-        x_sensor   :   x location of sensor or point to adjust topo-batimetry
-        Returns
-        ----------
-        last topo-batimetry in db, DataFrame
+        Default radar rain cmap
         '''
         import matplotlib.colors as colors
         bar_colors=[(255, 255, 255),(0, 255, 255), (0, 0, 255),(70, 220, 45),(44, 141, 29),(255,255,75),(255,142,0),(255,0,0),(128,0,128),(102,0,102),(255, 153, 255)]
@@ -685,16 +669,17 @@ class Nivel(SqlDb,wmf.SimuBasin):
         return cmap_radar,levels_nuevos,norm_new_radar
 
     def convert_level_to_risk(self,value,risk_levels):
-        ''' Convierte lamina de agua o profundidad a nivel de riesgo
+        '''
+        Convert water level into risk level
         Parameters
         ----------
-        value : float. Valor de profundidad o lamina de agua
-        riskLevels: list,tuple. Niveles de riesgo
-
+        value       : float. water level
+        risk_levels : list,tuple. risk_levels
         Returns
         -------
-        riskLevel : float. Nivel de riesgo
+        risk level  : float
         '''
+        import math
         if math.isnan(value):
             return np.NaN
         else:
@@ -704,38 +689,34 @@ class Nivel(SqlDb,wmf.SimuBasin):
     @property
     def risk_levels(self):
         '''
-        Gets last topo-batimetry in db
-        Parameters
-        ----------
-        x_sensor   :   x location of sensor or point to adjust topo-batimetry
-        Returns
-        ----------
-        last topo-batimetry in db, DataFrame
+        station risk levels
         '''
         query = "select n1,n2,n3,n4 from estaciones_estaciones where codigo = '%s'"%self.codigo
         return tuple(self.read_sql(query).values[0])
 
     def risk_level_series(self,start,end):
         '''
-        Gets last topo-batimetry in db
+        Gets risk level time series
         Parameters
         ----------
-        x_sensor   :   x location of sensor or point to adjust topo-batimetry
+        start   :   initial date
+        end     :   final date
         Returns
         ----------
-        last topo-batimetry in db, DataFrame
+        risk levels series, pd.Series
         '''
-        return self.level_local(start,end).apply(lambda x: self.convert_level_to_risk(x,self.risk_levels))
+        return self.level(start,end,local=True).apply(lambda x: self.convert_level_to_risk(x,self.risk_levels))
 
     def risk_level_df(self,start,end):
         '''
-        Gets last topo-batimetry in db
+        Gets risk level dataframe
         Parameters
         ----------
-        x_sensor   :   x location of sensor or point to adjust topo-batimetry
+        start   :   initial date
+        end     :   final date
         Returns
         ----------
-        last topo-batimetry in db, DataFrame
+        risk levels of all stations, DataFrame
         '''
         df = pd.DataFrame(index=pd.date_range(start,end,freq='D'),columns=self.infost.index)
         for count,codigo in enumerate(df.columns):
@@ -746,7 +727,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
                 df[codigo] = np.NaN
         return df
 
-    def plot_basin_rain(self,vec,cbar=None,ax=None):
+    def plot_basin_rain(self,vec,cbar=None,ax=None,**kwargs):
         '''
         Gets last topo-batimetry in db
         Parameters
@@ -776,8 +757,11 @@ class Nivel(SqlDb,wmf.SimuBasin):
             cbar = mapa.colorbar(contour,location='right',pad="15%")
             cbar.remove()
             plt.draw()
-        mapa.readshapefile(self.info.net_path,'net_path')
-        mapa.readshapefile(self.info.stream_path,'stream_path',linewidth=1)
+        net_path     = kwargs.get('net_path',self.data_path+'shapes/net/%s/%s'%(self.codigo,self.codigo))
+        polygon_path = kwargs.get('polygon_path',self.data_path+'shapes/polygon/%s/%s'%(self.codigo,self.codigo))
+        stream_path  = kwargs.get('stream_path',self.data_path+'shapes/stream/%s/%s'%(self.codigo,self.codigo))
+        mapa.readshapefile(net_path,'net_path')
+        mapa.readshapefile(stream_path,'stream_path',linewidth=1)
         return mapa
 
     def plot_section(self,df,*args,**kwargs):
@@ -1091,7 +1075,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
             text = u'ESTACIÓN SIN DATOS TEMPORALMENTE'
 
         ax4=fig.add_subplot(413)
-        img=plt.imread('/media/nicolas/Home/Jupyter/Sebastian/git/CPR/cprv1/leyenda.png')
+        img=plt.imread(self.data_path+'tools/leyenda.png')
         im=ax4.imshow(img)
         pos=im.axes.get_position()
         im.axes.set_position((pos.x0-.026,pos.y0-.17,pos.x1-.026,pos.y1-.17))
@@ -1104,42 +1088,6 @@ class Nivel(SqlDb,wmf.SimuBasin):
         plt.suptitle('%s | %s'%(self.codigo,self.info.nombre),y=0.93)
         plt.savefig(filepath,bbox_inches='tight')
         return ax,ax2,ax3
-
-    def update_level_local(self,start,end):
-        '''
-        Gets last topo-batimetry in db
-        Parameters
-        ----------
-        x_sensor   :   x location of sensor or point to adjust topo-batimetry
-        Returns
-        ----------
-        last topo-batimetry in db, DataFrame
-        '''
-        self.table = 'myusers_hydrodata'
-        try:
-            s = self.sensor(start,end).resample('5min').mean()
-            self.update_series(s,'nivel')
-        except:
-            print 'WARNING: No data for %s'%self.codigo
-
-    def update_level_local_all(self,start,end):
-        '''
-        Gets last topo-batimetry in db
-        Parameters
-        ----------
-        x_sensor   :   x location of sensor or point to adjust topo-batimetry
-        Returns
-        ----------
-        last topo-batimetry in db, DataFrame
-        '''
-        start,end = pd.to_datetime(start),pd.to_datetime(end)
-        timer = datetime.datetime.now()
-        size = self.infost.index.size
-        for count,codigo in enumerate(self.infost.index):
-            obj = Nivel(codigo = codigo,SimuBasin=False,**info.LOCAL)
-            obj.table = 'myusers_hydrodata'
-            obj.update_level_local(start,end)
-        seconds = (datetime.datetime.now()-timer).seconds
 
     def calidad(self):
         '''
@@ -1217,7 +1165,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         ----------
         last topo-batimetry in db, DataFrame
         '''
-        path = kwargs.get('path',self.data_path+'shapes/AreaMetropolitana')
+        path = kwargs.get('path',self.data_path+'shapes/more/AreaMetropolitana')
         m.readshapefile(path,'area',linewidth=0.5,color='w')
         x,y = m(self.info.longitud,self.info.latitud)
         scatterSize=100
@@ -1361,7 +1309,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         from reportlab.pdfbase import pdfmetrics
         from reportlab.pdfbase.ttfonts import TTFont
         from reportlab.pdfgen import canvas
-        avenir_book_path = self.data_path + 'AvenirLTStd-Book.ttf'
+        avenir_book_path = self.data_path + 'tools/AvenirLTStd-Book.ttf'
         pdfmetrics.registerFont(TTFont('AvenirBook', avenir_book_path))
         current_vect_title = 'Lluvia acumulada en la cuenca en las últimas dos horas'
         # REPORLAB
@@ -1611,9 +1559,9 @@ class Nivel(SqlDb,wmf.SimuBasin):
             contour = m.contourf(xm, ym, map_vec.T, 25,**contour_keys)
         else:
             contour = None
-        m.readshapefile(self.data_path+ 'shapes/AreaMetropolitana','area',linewidth=0.5,color='w')
+        m.readshapefile(self.data_path+ 'shapes/more/AreaMetropolitana','area',linewidth=0.5,color='w')
         m.readshapefile(self.data_path+ 'shapes/net/%s/%s'%(self.codigo,self.codigo),str(self.codigo))
-        m.readshapefile(self.data_path+ 'shapes/streams/%s/%s'%(self.codigo,self.codigo),str(self.codigo))
+        m.readshapefile(self.data_path+ 'shapes/stream/%s/%s'%(self.codigo,self.codigo),str(self.codigo))
         x,y = m(self.info.longitud,self.info.latitud)
         #m.scatter(x,y,s=100,zorder=10)
         scatterSize=100
