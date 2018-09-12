@@ -535,6 +535,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         ----------
         last topo-batimetry in db, DataFrame
         '''
+        levantamiento = levantamiento[['x','y']]
         hline = ((levantamiento['x'].min()*1.1,level),(levantamiento['x'].max()*1.1,level)) # horizontal line
         lev = pd.DataFrame.copy(levantamiento) #df to modify
         #PROBLEMAS EN LOS BORDES
