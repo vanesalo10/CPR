@@ -491,40 +491,6 @@ class Nivel(SqlDb,wmf.SimuBasin):
         conn_db.close()
         return data
 
-    def last_bat(self,x_sensor):
-        '''
-        Gets last topo-batimetry in db
-        Parameters
-        ----------
-        x_sensor   :   x location of sensor or point to adjust topo-batimetry
-        Returns
-        ----------
-        last topo-batimetry in db, DataFrame
-        '''
-        obj = Nivel(**info.REMOTE)
-        dfl = obj.mysql_query('select * from levantamiento_aforo_nueva')
-        dfl.columns = obj.mysql_query('describe levantamiento_aforo_nueva')[0].values
-        dfl = dfl.set_index('id_aforo')
-        for id_aforo in list(set(dfl.index)):
-            id_estacion_asociada,fecha = obj.mysql_query("SELECT id_estacion_asociada,fecha from aforo_nueva where id_aforo = %s"%id_aforo,toPandas=False)[0]
-            dfl.loc[id_aforo,'id_estacion_asociada'] = int(id_estacion_asociada)
-            dfl.loc[id_aforo,'fecha'] = fecha
-        dfl = dfl.reset_index().set_index('id_estacion_asociada')
-        lev = dfl[dfl['fecha']==max(list(set(pd.to_datetime(dfl.loc[self.codigo,'fecha'].values))))][['x','y']].astype('float')
-        cond = (lev['x']<x_sensor).values
-        flag = cond[0]
-        for i,j in enumerate(cond):
-            if j==flag:
-                pass
-            else:
-                point = (tuple(lev.iloc[i-1].values),tuple(lev.iloc[i].values))
-            flag = j
-        intersection = self.line_intersection(point,((x_sensor,0.1*lev['y'].min()),(x_sensor,1.1*lev['y'].max(),(x_sensor,))))
-        lev = lev.append(pd.DataFrame(np.matrix(intersection),index=['x_sensor'],columns=['x','y'])).sort_values('x')
-        lev['y'] = lev['y']-intersection[1]
-        lev.index = range(1,lev.index.size+1)
-        return lev
-
     def get_sections(self,levantamiento,level):
         '''
         Gets last topo-batimetry in db
@@ -2098,3 +2064,52 @@ class Nivel(SqlDb,wmf.SimuBasin):
         self.execute_sql(query)
         if verbose:
             print(datetime.datetime.now()-inicia)
+
+    def adjust_topo(self,df,x_sensor):
+        '''
+        Adjust topo-batimetry to last section
+        Parameters
+        ----------
+        df         : topo DataFrame
+        x_sensor   :   x location of sensor or point to adjust topo-batimetry
+        Returns
+        ----------
+        DataFrame adjust
+        '''
+        df = df[['x','y']]
+        cond = (df['x']<x_sensor).values
+        flag = cond[0]
+        for i,j in enumerate(cond):
+            if j==flag:
+                pass
+            else:
+                point = (tuple(df.iloc[i-1].values),tuple(df.iloc[i].values))
+            flag = j
+        intersection = self.line_intersection(point,((x_sensor,0.1*df['y'].min()),(x_sensor,1.1*df['y'].max(),(x_sensor,))))
+        df = df.append(pd.DataFrame(np.matrix(intersection),index=['x_sensor'],columns=['x','y'])).sort_values('x')
+        df['y'] = df['y']-intersection[1]
+        df.index = range(1,df.index.size+1)
+        return df
+
+    @property
+    def last_bat_id(self):
+        '''
+        Get last topo-batimetry
+        Returns
+        ----------
+        item foreing key id, int
+        '''
+        df = self.read_sql("select * from myusers_item where item_fk_id = '%s' and tipo_salida = 'siata-batimetria'"%self.info.id)
+        index = df[df['fecha']==df['fecha'].max()].index[0]
+        fk_id = df.loc[index,'id']
+        return fk_id
+
+    @property
+    def last_bat(self):
+        '''
+        Get last topo-batimetry
+        Returns
+        ----------
+        item foreing key id, int
+        '''
+        return self.read_sql("select * from myusers_topo where fk_id = '%s'"%self.last_bat_id).sort_values('vertical')

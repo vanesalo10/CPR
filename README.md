@@ -51,5 +51,8 @@ Dudas sobre el codigo, y sugerencias:
 
 ## Instalar las siguientes dependencias
 sudo pip install mysql-connector-python
+sudo pip instal mysqlclient
 sudo pip install SQLAlchemy
 sudo pip install reportlab
+
+Modificar archivo cpr/info.py, modificar base de datos local para cambiar las credenciales. cambiar radar_path y data_path por la ruta donde se encuentra la carpeta de datos.
