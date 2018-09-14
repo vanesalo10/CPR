@@ -13,6 +13,7 @@ import information as info
 import matplotlib.colors as mcolors
 from mpl_toolkits.basemap import Basemap
 import matplotlib.pyplot as plt
+import wmf
 from wmf import wmf
 import matplotlib.dates as mdates
 from reportlab.lib.pagesizes import letter
@@ -549,23 +550,22 @@ class Nivel(SqlDb,wmf.SimuBasin):
 
     @staticmethod
     def get_area(x,y):
-        '''Calcula las áreas y los caudales de cada
-        una de las verticales, con el método de mid-section
+        '''Calcula las areas y los caudales de cada
+        una de las verticales, con el metodo de mid-section
         Input:
         x = Distancia desde la banca izquierda, type = numpy array
         y = Produndidad
         Output:
-        area = Área de la subsección
-        Q = Caudal de la subsección
+        area = area de la subseccion
+        Q = Caudal de la subseccion
         '''
-        # cálculo de áreas
         d = np.absolute(np.diff(x))/2.
         b = x[:-1]+ d
         area = np.diff(b)*y[1:-1]
         area = np.insert(area, 0, d[0]*y[0])
         area = np.append(area,d[-1]*y[-1])
         area = np.absolute(area)
-        # cálculo de caudal
+        # calculo de caudal
         return area
 
     @staticmethod
@@ -1323,7 +1323,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         pdf.setFillColor('#%02x%02x%02x' % (8,31,45))
         pdf.setFont("AvenirBook", 23)
         pdf.drawString(240,1045,u'Estación %s - %s'%(self.info.nombre,date.strftime('%d %B de %Y')))
-        # últimas dos horas
+        # ultimas dos horas
         pdf.setFillColor('#%02x%02x%02x' % (8,31,45))
         pdf.setFont("AvenirBook", 20)
         pdf.drawString(90,520+300+30+100+30,'Lluvia acumulada en la cuenca')
@@ -1734,7 +1734,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
             pass
         daily = df.resample('D').max()
         rdf = self.risk_df(daily)
-        # niveles de riesgo en el último día
+        # niveles de riesgo en el ultimo dia
         last_day_risk = rdf[rdf.columns[-1]].copy()
         last_day_risk = last_day_risk[last_day_risk>0.0].sort_values(ascending=False).index
         rdf = rdf.loc[rdf.max(axis=1).sort_values(ascending=False).index]

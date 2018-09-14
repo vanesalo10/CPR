@@ -49,10 +49,19 @@ Dudas sobre el codigo, y sugerencias:
 - Para dudas escribir a: *hidrosiata@gmail.com* o a *mario.cano@siata.gov.co*
 - Reporte de bugs y problemas favor escribirlos en: https://github.com/SIATAhidro/CPR/issues
 
-## Instalar las siguientes dependencias
+## Instalar las siguientes dependencias para instalar bases de datos.
 sudo pip install mysql-connector-python
 sudo pip instal mysqlclient
 sudo pip install SQLAlchemy
 sudo pip install reportlab
+
+#Instalar WMF.
+# Configurar idioma
+export LC_ALL="en_US.UTF-8"
+export LC_CTYPE="en_US.UTF-8"
+# al ejecutar la sgte. linea responder Y a lo que aparece.
+sudo dpkg-reconfigure locales
+
+
 
 Modificar archivo cpr/info.py, modificar base de datos local para cambiar las credenciales. cambiar radar_path y data_path por la ruta donde se encuentra la carpeta de datos.
