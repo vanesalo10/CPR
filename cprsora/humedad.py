@@ -185,12 +185,12 @@ class Humedad(cprv1.SqlDb):
             #Set df
             soilm_df['Precipitacion']=pluvio_s
             #plot
-            yloc_legends=[-0.33,-0.37,-0.55]
-            ylocfactor_texts=[0.88,0.87,1.20]    
+            yloc_legends=[-0.34,-0.39,-0.46]
+            ylocfactor_texts=[0.88,0.925,0.98]    
             title=str(self.info.get('codigo'))+' | '+self.info.get('nombre')
             dfaxs=[soilm_df[soilm_df.columns[:3]],soilm_df[soilm_df.columns[3:6]],soilm_df[soilm_df.columns[6:9]]]
             dfax2=soilm_df[soilm_df.columns[-1]]
-            ylabelaxs=['Conductividad Eléctrica   $(dS.m^{-1})$', u'Temperatura ($^\circ$C)',u'Cont. Volumétrico de  Agua $(\%)$']
+            ylabelaxs=['Conductividad Eléctrica   $(dS.m^{-1})$', u'Temperatura ($^\circ$C)','Cont. Volumétrico de  Agua $(\%)$']
             ylabelax2='Precipitación  ($mm$)'
             xlabel='Tiempo'
             fontsizeylabel=13.5
@@ -201,7 +201,7 @@ class Humedad(cprv1.SqlDb):
             colors=[self.colores_siata_sora[1],self.colores_siata_sora[0],self.colores_siata2[2],self.colores_siata2[4]]
             #cant. de datos qe llegan sobre los esperados
             perc_datos= round((dfaxs[0].dropna().shape[0]/float(dfaxs[0].shape[0]))*100,2)
-            bottomtext= 'Esta estación tiene tres sensores a 0.1, 0.5 y 0.9 metros\nde profundidad. Cada uno mide Contenido Volumétrico\nde Agua (CVA), Temperatura (T) y Conductividad Eléctri-\nca (CE) del suelo. También cuenta con una estación plu-\nviométrica asociada.\n \nTipo de Sensor: '+tiposensor+u'\nResolución Temporal: 1 min. \nPorcentaje de datos transmitidos*: '+str(perc_datos)+u'% \n *Calidad de datos aun sin verificar exhaustivamente.'
+            bottomtext= 'Esta estación tiene tres sensores a 0.1, 0.5 y 0.9 metros\nde profundidad. Cada uno mide Contenido Volumétrico\nde Agua (CVA), Temperatura (T) y Conductividad Eléctri-\nca (CE) del suelo. También cuenta con una estación plu-\nviométrica asociada.\n \nTipo de Sensor: '+tiposensor+'\nResolución Temporal: 1 min. \nPorcentaje de datos transmitidos*: '+str(perc_datos)+u'% \n *Calidad de datos aun sin verificar exhaustivamente.'
             rutafig=ruta_figs+str(int((end-start).total_seconds()/3600))+'_hours/'+str(self.info.get('codigo'))+'_'+str(self.info.get('nombre'))#+'.png'
             namesfig=['EC','T','VW']
             rutafigs= [rutafig+'_'+namefig+'.png' for namefig in namesfig]
@@ -216,8 +216,8 @@ class Humedad(cprv1.SqlDb):
             #Set df
             soilm_df['Precipitacion']=pluvio_s
             #plot
-            yloc_legends=[-0.33,-0.37,-0.55]
-            ylocfactor_texts=[0.83,0.87,1.15]
+            yloc_legends=[-0.34,-0.395,-0.455]
+            ylocfactor_texts=[0.83,0.88,0.94]
             title=str(self.info.get('codigo'))+' | '+self.info.get('nombre')
             dfax=soilm_df[soilm_df.columns[:-1]]
             dfax2=soilm_df[soilm_df.columns[-1]]
@@ -232,7 +232,7 @@ class Humedad(cprv1.SqlDb):
             colors=[self.colores_siata_sora[1],self.colores_siata_sora[0],self.colores_siata2[2],self.colores_siata2[4]]
             #cant. de datos qe llegan sobre los esperados
             perc_datos= round((dfax.dropna().shape[0]/float(dfax.shape[0]))*100,2)
-            bottomtext= 'Esta estación tiene tres sensores a 0.1, 0.5 y 0.9 metros\nde profundidad que miden el Contenido Volumétrico de\nAgua (CVA) en el suelo, también cuenta con una esta\nción pluviométrica asociada.\n \nTipo de Sensores: '+tiposensor+u'\nResolución Temporal: 1 min. \nPorcentaje de datos transmitidos*: '+str(perc_datos)+u'% \n *Calidad de datos aun sin verificar exhaustivamente.'
+            bottomtext= 'Esta estación tiene tres sensores a 0.1, 0.5 y 0.9 metros\nde profundidad que miden el Contenido Volumétrico de\nAgua (CVA) en el suelo, también cuenta con una esta\nción pluviométrica asociada.\n \nTipo de Sensores: '+tiposensor+'\nResolución Temporal: 1 min. \nPorcentaje de datos transmitidos*: '+str(perc_datos)+'% \n *Calidad de datos aun sin verificar exhaustivamente.'
             rutafig=ruta_figs+str(int((end-start).total_seconds()/3600))+'_hours/'+str(self.info.get('codigo'))+'_'+str(self.info.get('nombre'))+'_H.png'
             plot_HydrologicalVar(dfax,dfax2,ylabelax,ylabelax2,xlabel,fontsizeylabel,fontsizexlabel,
                                      path_fuentes,colors,window,bottomtext,ylocfactor_texts,yloc_legends,rutafig,title=title)

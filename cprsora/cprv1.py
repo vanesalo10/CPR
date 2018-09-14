@@ -315,6 +315,9 @@ class SqlDb:
         series = df.reindex(new_index)[field]
         return series
 
+    def round_time(self,date = datetime.datetime.now(),round_mins=5):
+        mins = date.minute - (date.minute % round_mins)
+        return datetime.datetime(date.year, date.month, date.day, date.hour, mins) + datetime.timedelta(minutes=round_mins)
 
 class Nivel(SqlDb,wmf.SimuBasin):
     '''
@@ -351,6 +354,8 @@ class Nivel(SqlDb,wmf.SimuBasin):
 
     	self.colores_siata = [[0.69,0.87,0.93],[0.61,0.82,0.88],[0.32,0.71,0.77],[0.21,0.60,0.65],\
                           [0.0156,0.486,0.556],[0.007,0.32,0.36],[0.0078,0.227,0.26]]
+    	self.colores_siata2 = ['#1487B9', '#22467F','#09202E','#004D56',\
+                              '#70AFBA','#98D1DD','#8ABB73','#C7D15D']
 
     @property
     def info(self):
@@ -1493,10 +1498,6 @@ class Nivel(SqlDb,wmf.SimuBasin):
         plt.xticks(rotation=90)
         alpha=1
         height = 8
-
-    def round_time(self,date = datetime.datetime.now(),round_mins=5):
-        mins = date.minute - (date.minute % round_mins)
-        return datetime.datetime(date.year, date.month, date.day, date.hour, mins) + datetime.timedelta(minutes=round_mins)
 
     def level_all(self,start=None,end = None,hours=3):
         if start:
