@@ -391,7 +391,7 @@ class Hidraulica(Nivel):
             self.a_horaria.to_excel(writer,'a_horaria')
             self.q_horaria.to_excel(writer,'q_horaria')
         except:
-            print 'no hourly data'
+            print ('no hourly data')
             pass
         writer.save()
 
@@ -403,7 +403,7 @@ class Hidraulica(Nivel):
     def pixelconverter(self,filepath,width = False,height=False):
         w,h = self.get_num_pixels(filepath)
         factor = float(w)/h
-        if width<>False:
+        if width != False:
             return width/factor
         else:
             return height*factor
@@ -418,7 +418,7 @@ class Hidraulica(Nivel):
         texto1           = path to the plain tex file containing the first paragraph of the report which correspond to the descripiton of the registered levels trought the day and the station tranversal section.
         texto2           = path to the plain tex file containing the second paragraph of the report which correspond to the descripiton of the radar antecedent and current rainfall for the campaign date.
         seccion          = path to the png or jpeg file containing a representation of the tranversal section measured.
-        alturas          = path to the png or jpeg file containing the hourly level of water registered during the campaign.
+        alturas          = path to the png or jpeg file containing the hourly level of water registered during the campaign. 
         lluvia           = path to the png or jpeg file containing the radar rainfall plots to be analyzed.
         histograma       = path to the png or jpeg file containing the stattistics for the historic gauging campaigns.
         resultados       = path to the excel file containing the gauging campaign data and results for the station.
@@ -426,11 +426,11 @@ class Hidraulica(Nivel):
         numero_aforos    = number of gauging campaigns carried out.
         foot (ptional)   = path to the png or jpeg file containing the page foot of the report (Logos)
         head (ptional)   = path to the png or jpeg file containing the page header of the report
-        estadisticas(opt)
+        estadisticas(opt) 
         heights          = set False to not display the hourly registered levels in the first figure of this report.
         page2            = set False to not display the second page of this report.
         table            = set False to not display the results table.
-        one_page         = set True to only display the level and section figure (and its description) and the rainfall figure.
+        one_page         = set True to only display the level and section figure (and its description) and the rainfall figure. 
         '''
         from reportlab.lib.pagesizes import letter
         from reportlab.platypus import SimpleDocTemplate,Paragraph, Table, TableStyle
@@ -457,8 +457,8 @@ class Hidraulica(Nivel):
         head='/media/nicolas/Home/Jupyter/MarioLoco/tools/head.png' if head==None else head
         foot='/media/nicolas/Home/Jupyter/MarioLoco/tools/foot.png' if foot==None else foot
 
-        print head
-        print foot
+        print(head)
+        print(foot)
 
         texto1=open(texto1).read().decode('utf8')
         texto2=open(texto2).read().decode('utf8')
@@ -470,7 +470,6 @@ class Hidraulica(Nivel):
             dispositivo=resultados.loc['dispositivo'].values[0]
         except:
             dispositivo='OTT MF-PRO'
-
 
         textf1 = kwargs.get('textf1','Figura 1. a) Dibujo de la sección transversal del canal. b) Caudales horarios obtenidos a partir de profundidades de la lámina de agua.')
         textf2 = 'Tabla 1. Resumen, muestra el dispositivo con el que se realizó el aforo y los parámetros hidráulicos estimados más relevantes.'
@@ -486,26 +485,9 @@ class Hidraulica(Nivel):
         pdf.drawImage(head,0,1056-129,width=816,height=129)
         text_color = '#%02x%02x%02x' % (8,31,45)
         styles=getSampleStyleSheet()
-        styles.add(ParagraphStyle(name='Texts',\
-                                  alignment=TA_CENTER,\
-                                  fontName = "AvenirBook",\
-                                  fontSize = 20,\
-                                  textColor = text_color,\
-                                  leading = 20))
-
-        styles.add(ParagraphStyle(name='Justify',\
-                                  alignment=TA_JUSTIFY,\
-                                  fontName = "AvenirBook",\
-                                  fontSize = 14,\
-                                  textColor = text_color,\
-                                  leading = 20))
-
-        styles.add(ParagraphStyle(name='JustifyBold',\
-                              alignment=TA_JUSTIFY,\
-                              fontName = "AvenirBookBold",\
-                              fontSize = 13,\
-                              textColor = text_color,\
-                              leading = 20))
+        styles.add(ParagraphStyle(name='Texts', alignment=TA_CENTER, fontName = "AvenirBook", fontSize = 20, textColor = text_color, leading = 20))
+        styles.add(ParagraphStyle(name='Justify', alignment=TA_JUSTIFY, fontName = "AvenirBook", fontSize = 14, textColor = text_color, leading = 20))
+        styles.add(ParagraphStyle(name='JustifyBold', alignment=TA_JUSTIFY, fontName = "AvenirBookBold", fontSize = 13, textColor = text_color, leading = 20))
         #flagheigths
         if heights == False:
             height = 180
@@ -522,8 +504,6 @@ class Hidraulica(Nivel):
             pdf.drawString(220,770,"a)")
             pdf.drawString(600,770,"b)")
             pdf.drawImage(alturas,50+310,550,width=426-13,height=211)
-
-
             p = Paragraph(textf1, styles["JustifyBold"])
             p.wrapOn(pdf, 716, 200)
             p.drawOn(pdf,50,480)
@@ -561,34 +541,19 @@ class Hidraulica(Nivel):
 
         pdf.setFillColor(text_color)
         pdf.setFont("AvenirBook", 20)
-        print nombreEstacion
+        print(nombreEstacion)
 
         p = Paragraph(u'Estación %s - %s'%(nombreEstacion.encode('utf8'),fecha), styles["Texts"])
         p.wrapOn(pdf, 816, 200)
         p.drawOn(pdf,0,945)
 
-        data= [['Caudal total [m^3/s] ', round(float(resultados.caudal_medio),2), 'Dispositivo', dispositivo],
-               [u'Área mojada [m^2]',round(float(resultados.area_total),2), 'Ancho superficial [m]',round(float(resultados.ancho_superficial),2)],
-               ['Profundidad media [m]', round(float(resultados.altura_media),2), 'Velocidad promedio [m/s]',round(float(resultados.velocidad_media),2)],
-               [u'Perímetro mojado [m]', round(float(resultados.perimetro),2), 'Radio hidráulico [m]', round(float(resultados.radio_hidraulico),2)],]
+        data= [['Caudal total [m^3/s] ', round(float(resultados.caudal_medio),2), 'Dispositivo', dispositivo], [u'Área mojada [m^2]',round(float(resultados.area_total),2), 'Ancho superficial [m]',round(float(resultados.ancho_superficial),2)], ['Profundidad media [m]', round(float(resultados.altura_media),2), 'Velocidad promedio [m/s]',round(float(resultados.velocidad_media),2)], [u'Perímetro mojado [m]', round(float(resultados.perimetro),2), 'Radio hidráulico [m]', round(float(resultados.radio_hidraulico),2)],]
 
         if table==True:
-            t=Table(data,colWidths = [210,110,210,110],rowHeights=[30,30,30,30],style=[('GRID',(0,0),(-1,-1),1,text_color),
-                                ('ALIGN',(0,0),(0,-1),'LEFT'),
-                                ('BACKGROUND',(0,0),(0,-1),colors.white),
-                                ('ALIGN',(3,2),(3,2),'LEFT'),
-                                ('BOX',(0,0),(-1,-1),1,colors.black),
-                                ('TEXTFONT', (0, 0), (-1, 1), 'AvenirBook'),
-                                ('TEXTCOLOR',(0,0),(-1,-1),text_color),
-                                ('FONTSIZE',(0,0),(-1,-1),14),
-                                ('VALIGN',(0,0),(-1,-1),'MIDDLE'),
-                                ('ALIGN',(1,0),(1,-1),'CENTER'),
-                                ('ALIGN',(3,0),(3,-1),'CENTER')
-            ])
+            t=Table(data,colWidths = [210,110,210,110],rowHeights=[30,30,30,30],style=[('GRID',(0,0),(-1,-1),1,text_color), ('ALIGN',(0,0),(0,-1),'LEFT'),('BACKGROUND',(0,0),(0,-1),colors.white), ('ALIGN',(3,2),(3,2),'LEFT'), ('BOX',(0,0),(-1,-1),1,colors.black), ('TEXTFONT', (0, 0), (-1, 1), 'AvenirBook'), ('TEXTCOLOR',(0,0),(-1,-1),text_color), ('FONTSIZE',(0,0),(-1,-1),14), ('VALIGN',(0,0),(-1,-1),'MIDDLE'), ('ALIGN',(1,0),(1,-1),'CENTER'), ('ALIGN',(3,0),(3,-1),'CENTER') ])
 
             t.wrapOn(pdf, 650, 200)
             t.drawOn(pdf,100,310)
-
 
             p = Paragraph(textf2, styles["JustifyBold"])
             p.wrapOn(pdf, 716, 200)
@@ -598,7 +563,6 @@ class Hidraulica(Nivel):
         pdf.setFillColor('#%02x%02x%02x' % (8,31,45))
         pdf.setFont("AvenirBook", 15)
         pdf.setFillColor('#%02x%02x%02x' % (8,31,45))
-
 
         if one_page==True:
             page2=False
@@ -612,9 +576,8 @@ class Hidraulica(Nivel):
             p.drawOn(pdf,50,130)
 
         pdf.showPage()
-
-        #PÁGINA 2
-
+        
+        #PÁGINA 2 
         if page2==True:
             pdf.drawImage(foot,816/2-(100/(209/906.))/2,10,width=(100/(209/906.)),height=100)
             pdf.drawImage(head,0,1056-129,width=816,height=129)
@@ -622,18 +585,22 @@ class Hidraulica(Nivel):
             width = self.pixelconverter(lluvia,height=height)
             xloc = widthPage/2.0 - (width/2.0)
             pdf.drawImage(lluvia,xloc,540,width = width,height = height)
+            p = Paragraph(u'Estación %s - %s'%(nombreEstacion.encode('utf8'),fecha), styles["Texts"])
+            p.wrapOn(pdf, 816, 200)
+            p.drawOn(pdf,0,945)
+            
+        if len(texto2)<500:
+            p = Paragraph(texto2, styles["Justify"])
+            p.wrapOn(pdf, 720, 200)
+            p.drawOn(pdf,50,820)
 
-	    if len(texto2)<500:
-            	p = Paragraph(texto2, styles["Justify"])
-            	p.wrapOn(pdf, 720, 200)
-            	p.drawOn(pdf,50,820)
-
-	    else:
-                p = Paragraph(texto2, styles["Justify"])
-                p.wrapOn(pdf, 720, 200)
-                p.drawOn(pdf,50,790)
+        else:
+            p = Paragraph(texto2, styles["Justify"])
+            p.wrapOn(pdf, 720, 200)
+            p.drawOn(pdf,50,790)
 
             textf4 = 'Figura 3. a) Distribuciones de frecuencia, número de aforos: %s, la línea punteada vertical es el caudal observado, la curva es una distribución de frecuencia acumulada que presenta el régimen de caudales. b) Resumen de estadísticos. Max = Caudal máximo, Min = Caudal mínimo, P25 = Percentil 25, P50 = Mediana, P75 = Percentil 75, Media = Caudal promedio, Std = desviación estándar, Obs = Caudal observado.'%(numero_aforos)
+
             p = Paragraph(textf3, styles["JustifyBold"])
             p.wrapOn(pdf, 716, 200)
             p.drawOn(pdf,50,480)
@@ -659,11 +626,8 @@ class Hidraulica(Nivel):
                     p.wrapOn(pdf, 716, 200)
                     p.drawOn(pdf,120,145)
 
-                p = Paragraph(u'Estación %s - %s'%(nombreEstacion.encode('utf8'),fecha), styles["Texts"])
-                p.wrapOn(pdf, 816, 200)
-                p.drawOn(pdf,0,945)
                 # pdf.drawImage('/media/nicolas/Home/Jupyter/MarioLoco/tools/acumuladoLegend.jpg',642,570,width=43.64,height=200)
-                pdf.drawImage('/media/nicolas/Home/Jupyter/MarioLoco/tools/arrow.png',kwargs.get('left',595),575,width=20,height=20)
+                pdf.drawImage('/media/nicolas/Home/Jupyter/MarioLoco/tools/arrow.png', kwargs.get('left',595), 575, width=20, height=20)
                 left=kwargs.get('left',590)
                 pdf.drawString(left+10,596,"N")
                 pdf.setFont("AvenirBook", 14)
@@ -676,7 +640,5 @@ class Hidraulica(Nivel):
                 p = Paragraph(u'Estación %s - %s'%(nombreEstacion.encode('utf8'),fecha), styles["Texts"])
                 p.wrapOn(pdf, 816, 200)
                 p.drawOn(pdf,0,945)
-        else:
-            1
-
         pdf.save()
+ 

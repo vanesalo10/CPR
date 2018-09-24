@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 import os
 import datetime
-import information as info
+import cpr.information as info
 import matplotlib.colors as mcolors
 from mpl_toolkits.basemap import Basemap
 import matplotlib.pyplot as plt
@@ -19,7 +19,7 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from matplotlib.patches import Polygon
 
-from SqlDb import SqlDb
+from cpr.SqlDb import SqlDb
 # default config
 typColor = '#%02x%02x%02x' % (8,31,45)
 plt.rc('axes',labelcolor=typColor)
@@ -47,7 +47,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         self.data_path      = info.DATA_PATH
         self.rain_path      = self.data_path + 'user_output/radar/'
         self.radar_path     = info.RADAR_PATH
-    	self.colores_siata  = [[0.69,0.87,0.93],[0.61,0.82,0.88],[0.32,0.71,0.77],[0.21,0.60,0.65],[0.0156,0.486,0.556],[0.007,0.32,0.36],[0.0078,0.227,0.26]]
+        self.colores_siata  = [[0.69,0.87,0.93],[0.61,0.82,0.88],[0.32,0.71,0.77],[0.21,0.60,0.65],[0.0156,0.486,0.556],[0.007,0.32,0.36],[0.0078,0.227,0.26]]
 
         if not kwargs:
             kwargs = info.LOCAL
@@ -179,7 +179,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
                     Stra[rvec == 0] = 0
                     #Cierra el netCDFs
                     g.close()
-            except Exception, e:
+            except (Exception, e):
                 rvec = np.zeros(cuAMVA.ncells)
                 if save_escenarios:
                     rhigh = np.zeros(cuAMVA.ncells)
@@ -222,7 +222,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
                     doit = hagalo)
             #Opcion Vervose
             if verbose:
-                print dates.strftime('%Y%m%d-%H:%M'), pos
+                print (dates.strftime('%Y%m%d-%H:%M'), pos)
         #Cierrra el binario y escribe encabezado
         cuAMVA.rain_radar2basin_from_array(status = 'close',ruta_out = rutaRes)
         if save_class:
@@ -233,7 +233,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
             cuLow.rain_radar2basin_from_array(status = 'close',ruta_out = rutaRes+'_low')
         #Imprime en lo que va
         if verbose:
-                print 'Encabezados de binarios de cuenca cerrados y listos'
+                print ('Encabezados de binarios de cuenca cerrados y listos')
 
     @staticmethod
     def hdr_to_series(path):
@@ -397,7 +397,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
                 obj =  self.bin_to_df(file)
             obj = obj.loc[start:end]
         else:
-            print 'WARNING: converting rain data, it may take a while'
+            print ('WARNING: converting rain data, it may take a while')
             delay = datetime.timedelta(hours=5)
             kwargs =  {
                         'start':start+delay,
@@ -1192,7 +1192,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
             s = self.sensor(start,end).resample('5min').mean()
             self.update_series(s,'nivel')
         except:
-            print 'WARNING: No data for %s'%self.codigo
+            print ('WARNING: No data for %s'%self.codigo)
 
     def update_level_local_all(self,start,end):
         '''
@@ -1404,9 +1404,9 @@ class Nivel(SqlDb,wmf.SimuBasin):
         level_cond = (series.dropna().size/series.size) < 0.05 # condición de nivel para graficar
         rain_cond = len(current_vect)==0.0
         if level_cond:
-            print 'WARNING : Not enough level data'
+            print ('WARNING : Not enough level data')
         if rain_cond:
-            print 'WARNING : Not rain in basin'
+            print ('WARNING : Not rain in basin')
         if level_cond or rain_cond:
             pass
         else:
@@ -2057,7 +2057,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
             print('INFO: gif saved in path: %s%s'%(filepath,file_name))
         else:
 
-            print 'didnt work'
+            print ('didnt work')
         filepath = filepath+file_name
         remote_path = 'mcano@siata.gov.co:/var/www/mario/gifs/'
         os.system('ssh mcano@siata.gov.co "mkdir /var/www/mario/gifs/%s"'%(end.strftime('%Y%m%d')))
