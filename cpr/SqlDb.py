@@ -12,7 +12,7 @@ import datetime
 from sqlalchemy import create_engine
 import mysql.connector
 import locale
-locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
+#locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
 
 class SqlDb:
     '''
