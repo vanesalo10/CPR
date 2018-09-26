@@ -247,7 +247,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         pandas time Series with mean radar rain
         '''
         s =  pd.read_csv(path,skiprows=5,usecols=[2,3]).set_index(' Fecha ')[' Lluvia']
-        s.index = pd.to_datetime(map(lambda x:x.strip()[:10]+' '+x.strip()[11:],s.index))
+        s.index = pd.to_datetime(s.index)
         return s
 
     @staticmethod
@@ -264,7 +264,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         if path.endswith('.hdr') != True:
             path = path+'.hdr'
         df = pd.read_csv(path,skiprows=5).set_index(' Fecha ')
-        df.index = pd.to_datetime(map(lambda x:x.strip()[:10]+' '+x.strip()[11:],df.index))
+        df.index = pd.to_datetime(df.index)
         df = df.drop('IDfecha',axis=1)
         df.columns = ['record','mean_rain']
         return df
