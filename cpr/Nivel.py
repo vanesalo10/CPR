@@ -19,7 +19,6 @@ from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from matplotlib.patches import Polygon
 from matplotlib.collections import PatchCollection
-
 from cpr.SqlDb import SqlDb
 # default config
 typColor = '#%02x%02x%02x' % (8,31,45)
@@ -28,6 +27,33 @@ plt.rc('axes',edgecolor=typColor)
 plt.rc('text',color= typColor)
 plt.rc('xtick',color=typColor)
 plt.rc('ytick',color=typColor)
+
+
+def logger(orig_func):
+    '''logging decorator, alters function passed as argument and creates
+    log file. (contains function time execution)
+    Parameters
+    ----------
+    orig_func : function to pass into decorator
+    filepath  : file to save log file (ends with .log)
+    Returns
+    -------
+    log file
+    '''
+    import logging
+    from functools import wraps
+    import time
+    logging.basicConfig(filename = info.DATA_PATH + 'logs/nivel.log',level=logging.INFO)
+    @wraps(orig_func)
+    def wrapper(*args,**kwargs):
+        start = time.time()
+        f = orig_func(*args,**kwargs)
+        date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
+        took = time.time()-start
+        log = '%s:%s:%.1f sec'%(date,orig_func.__name__,took)
+        logging.info(log)
+        return f
+    return wrapper
 
 class Nivel(SqlDb,wmf.SimuBasin):
     ''' Provide functions to manipulate data related to a level sensor and its basin '''
@@ -82,8 +108,8 @@ class Nivel(SqlDb,wmf.SimuBasin):
         query = "SELECT * FROM %s WHERE clase ='Nivel'"%(self.local_table)
         return self.read_sql(query).set_index('codigo')
 
-    @staticmethod
-    def get_radar_rain(start,end,cuenca,rutaNc,rutaRes,dt,umbral,verbose,super_verbose,old,save_class,save_escenarios,store_true,**kwargs):
+    @logger
+    def get_radar_rain(self,start,end,cuenca,rutaNc,rutaRes,dt,umbral,verbose,super_verbose,old,save_class,save_escenarios,store_true,*args,**kwargs):
         '''
         Gets full information from all stations
         Returns
@@ -1726,6 +1752,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
                 risk[codigo] = 'black'
         return risk
 
+    @logger
     def reporte_lluvia(self,end,filepath=None):
         '''
         Gets last topo-batimetry in db
@@ -1842,6 +1869,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         for tick in ax.get_xticklabels():
             tick.set_rotation(90)
 
+    @logger
     def reporte_diario(self,date):
         '''
         Gets last topo-batimetry in db
@@ -1965,6 +1993,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         query = "rsync -r %s %s/"%(folder_path+'/lluvia_diaria.png',remote_path+end.strftime('%Y%m%d'))
         os.system(query)
 
+    @logger
     def gif(self,start,end,delay=0,loop=0):
         '''
         Gets last topo-batimetry in db
