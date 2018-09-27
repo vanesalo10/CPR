@@ -18,6 +18,7 @@ import matplotlib.dates as mdates
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.units import inch
 from matplotlib.patches import Polygon
+from matplotlib.collections import PatchCollection
 
 from cpr.SqlDb import SqlDb
 # default config
@@ -581,7 +582,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
             flag = j
         df = pd.DataFrame(np.matrix(nlev),columns=['x','y'],index=ids)
         dfs = []
-        for i in np.arange(1,100,2)[:intCount/2]:
+        for i in np.arange(1,100,2)[:int(intCount/2)]:
             dfs.append(df.loc['Point %s'%i:'Point %s'%(i+1)])
         return dfs
 
@@ -728,7 +729,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         scale_factor =  ((255-0.)/(lev.max() - lev.min()))
         new_Limits = list(np.array(np.round((lev-lev.min())*\
                                     scale_factor/255.,3),dtype = float))
-        Custom_Color = map(lambda x: tuple(ti/255. for ti in x) , bar_colors)
+        Custom_Color = list(map(lambda x: tuple(ti/255. for ti in x) , bar_colors))
         nueva_tupla = [((new_Limits[i]),Custom_Color[i],) for i in range(len(Custom_Color))]
         cmap_radar =colors.LinearSegmentedColormap.from_list('RADAR',nueva_tupla)
         levels_nuevos = np.linspace(np.min(lev),np.max(lev),255)
@@ -767,6 +768,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         -------
         riskLevel : float. Nivel de riesgo
         '''
+        import math
         if math.isnan(value):
             return np.NaN
         else:
@@ -818,7 +820,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
                 df[codigo] = np.NaN
         return df
 
-    def plot_basin_rain(self,vec,cbar=None,ax=None):
+    def plot_basin_rain(self,vec,cbar=None,ax=None,**kwargs):
         '''
         Gets last topo-batimetry in db
         Parameters
@@ -848,8 +850,10 @@ class Nivel(SqlDb,wmf.SimuBasin):
             cbar = mapa.colorbar(contour,location='right',pad="15%")
             cbar.remove()
             plt.draw()
-        mapa.readshapefile(self.info.net_path,'net_path')
-        mapa.readshapefile(self.info.stream_path,'stream_path',linewidth=1)
+        net_path = kwargs.get('net_path',self.data_path + "shapes/net/%s/%s"%(self.codigo,self.codigo))
+        stream_path = kwargs.get('stream_path',self.data_path + "shapes/stream/%s/%s"%(self.codigo,self.codigo))
+        mapa.readshapefile(net_path,'net_path')
+        mapa.readshapefile(stream_path,'stream_path',linewidth=1)
         return mapa
 
     def plot_section(self,df,*args,**kwargs):
@@ -1163,7 +1167,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
             text = u'ESTACIÓN SIN DATOS TEMPORALMENTE'
 
         ax4=fig.add_subplot(413)
-        img=plt.imread('/media/nicolas/Home/Jupyter/Sebastian/git/CPR/cprv1/leyenda.png')
+        img=plt.imread(self.data_path+'tools/leyenda.png')
         im=ax4.imshow(img)
         pos=im.axes.get_position()
         im.axes.set_position((pos.x0-.026,pos.y0-.17,pos.x1-.026,pos.y1-.17))
@@ -1433,7 +1437,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         from reportlab.pdfbase import pdfmetrics
         from reportlab.pdfbase.ttfonts import TTFont
         from reportlab.pdfgen import canvas
-        avenir_book_path = self.data_path + 'AvenirLTStd-Book.ttf'
+        avenir_book_path = self.data_path + 'tools/AvenirLTStd-Book.ttf'
         pdfmetrics.registerFont(TTFont('AvenirBook', avenir_book_path))
         current_vect_title = 'Lluvia acumulada en la cuenca en las últimas dos horas'
         # REPORLAB
@@ -1529,6 +1533,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         ----------
         last topo-batimetry in db, DataFrame
         '''
+        df = df.copy()
         for codigo in df.columns:
             risk_levels = np.array(self.infost.loc[codigo,['n1','n2','n3','n4']])
             try:
