@@ -2140,3 +2140,78 @@ class Nivel(SqlDb,wmf.SimuBasin):
         new_index = pd.date_range(start,end,freq='min')
         series = df.reindex(new_index)[field]
         return series
+
+    def siata_remote_data_to_transfer(start,end,*args,**kwargs):
+        '''
+        Parameters
+        ----------
+        start        : initial date
+        end          : final date
+        Returns
+        ----------
+        pandas DataFrame
+        '''
+        remote = cpr.Nivel(**cpr.info.REMOTE)
+        codigos_str = '('+str(list(self.infost.index)).strip('[]')+')'
+        parameters = tuple([codigos_str,self.fecha_hora_query(start,end)])
+        df = remote.read_sql('SELECT * FROM datos WHERE cliente in %s and %s'%parameters)
+        return df
+
+    def data_to_transfer(self,start,end,local_path=None,remote_path=None,**kwargs):
+        '''
+        Gets pandas Series with data from tables with
+        bad data
+        Parameters
+        ----------
+        field        : Sql table field name
+        start        : initial date
+        end          : final date
+        Returns
+        ----------
+        pandas time Series
+        '''
+        transfer = self.siata_remote_data_to_transfer(start,end,**kwargs)
+        def convert(x):
+            try:
+                value = pd.to_datetime(x).strftime('%Y-%m-%d')
+            except:
+                value = np.NaN
+            return value
+        transfer['fecha'] = transfer['fecha'].apply(lambda x:convert(x))
+        transfer = transfer.loc[transfer['fecha'].dropna().index]
+        if local_path:
+            transfer.to_csv(local_path)
+            if remote_path:
+                os.system('scp %s %s'%(local_path,remote_path))
+        return transfer
+
+    @logger
+    def insert_myusers_hydrodata(self,start,end):
+        '''
+        Inserts data into myusers_hydrodata table, if fecha and fk_id exist, updates values.
+        bad data
+        Parameters
+        ----------
+        start        : initial date
+        end          : final date
+        Returns
+        ----------
+        pandas time Series
+        '''
+        df = self.level_all(start,end,calidad=True)
+        query = "INSERT INTO myusers_hydrodata (fk_id,fecha,profundidad,timestamp,updated,user_id) VALUES "
+        df = df.unstack().reset_index()
+        df.columns = ['fk_id','fecha','profundidad']
+        df['profundidad'] = df['profundidad']
+        df['fk_id'] = self.infost.loc[np.array(df['fk_id'].values,int),'id'].values
+        df['profundidad'] = df['profundidad'].apply(lambda x:round(x,3))
+        df = df.applymap(lambda x:str(x))
+        df['timestap'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
+        df['updated'] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
+        df['user_id'] = '1'
+        for id,s in df.iterrows():
+            query+=('('+str(list(s.values)).strip('[]'))+'), '
+        query = query[:-2]
+        query = query.replace("'nan'",'NULL')
+        query += ' ON DUPLICATE KEY UPDATE profundidad = VALUES(profundidad)'
+        self.execute_sql(query)
