@@ -51,6 +51,7 @@ def logger(orig_func):
         date = datetime.datetime.now().strftime('%Y-%m-%d %H:%M')
         took = time.time()-start
         log = '%s:%s:%.1f sec'%(date,orig_func.__name__,took)
+        print(log)
         logging.info(log)
         return f
     return wrapper
