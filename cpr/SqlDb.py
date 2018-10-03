@@ -12,7 +12,6 @@ import datetime
 from sqlalchemy import create_engine
 import mysql.connector
 import locale
-#locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
 
 class SqlDb:
     '''
@@ -222,7 +221,7 @@ class SqlDb:
         df = self.read_sql('describe %s'%table_name)
         df['Null'][df['Null']=='NO'] = 'NOT NULL'
         df['Null'][df['Null']=='YES'] = 'NULL'
-        sentence = 'CREATE TABLE %s ('%table_name
+        sentence = 'CREATE TABLE %s '%table_name
         if df[df['Extra']=='auto_increment'].empty:
             pk = None
         else:
