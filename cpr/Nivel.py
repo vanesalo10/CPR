@@ -1636,7 +1636,7 @@ class Nivel(SqlDb,wmf.SimuBasin):
         df = pd.DataFrame(index = pd.date_range(start,end,freq='5min'),columns = codigos)
         for codigo in codigos:
             try:
-                level = Nivel(codigo=codigo,** info.LOCAL).level(start,end,**kwargs).resample('5min').mean()
+                level = Nivel(codigo=codigo,** info.LOCAL).level(start,end,**kwargs).resample('5min').max()
                 df[codigo] = level
             except:
                 pass
